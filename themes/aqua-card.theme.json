@@ -1,0 +1,50 @@
+{
+  "theme_name": "aqua-card",
+  "ui_lang": "en",
+  "rtl_mode": false,
+  "colors": {
+    "primary": "#075985",
+    "text": "#0B1324",
+    "accent": "#0EA5E9",
+    "bg": "#FFFFFF"
+  },
+  "fonts": {
+    "base": "DejaVuSans",
+    "bold": "DejaVuSans-Bold",
+    "heading": "DejaVuSans-Bold"
+  },
+  "sizes": {
+    "h1": 22,
+    "h2": 14,
+    "h3": 12,
+    "body": 10,
+    "lead_h1": 26,
+    "lead_h2": 20,
+    "lead_h3": 16,
+    "lead_body": 14
+  },
+  "sp_after_header": 10,
+  "sp_after_par": 7,
+  "sp_after_list": 7,
+  "overrides": {
+    "header_name": {
+      "data": {
+        "centered": true,
+        "highlight_bg": "#E0F2FE",
+        "box_h_mm": 28
+      }
+    },
+    "left_panel_bg": {
+      "data": {
+        "pad_mm": 8,
+        "bg": "#F0F9FF"
+      }
+    },
+    "projects": {
+      "data": {
+        "title_bold": true,
+        "gap_mm": 3
+      }
+    }
+  }
+}

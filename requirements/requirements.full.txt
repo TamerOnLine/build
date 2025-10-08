@@ -1,0 +1,44 @@
+# ============================================================
+# 🧩 CodeSentry — Service & Build Tools
+# ============================================================
+# These packages are used for running the CodeSentry auditing tool.
+# They are NOT required for production, but useful during development.
+
+coverage==7.6.8
+uvicorn[standard]==0.37.0
+streamlit==1.50.0
+pytest==8.4.2
+
+
+# ============================================================
+# 📦 Core Web Frameworks (Main Project)
+# ============================================================
+fastapi==0.118.0
+pydantic==2.11.9
+python-multipart==0.0.20
+jinja2==3.1.4
+itsdangerous==2.2.0
+email-validator==2.3.0
+
+
+# ============================================================
+# 🧾 PDF & Image Rendering
+# ============================================================
+reportlab==4.4.4
+Pillow==11.3.0
+arabic-reshaper==3.0.0
+python-bidi==0.6.6
+
+
+# ============================================================
+# 🖥️ User Interface & Networking
+# ============================================================
+requests==2.32.3
+httpx==0.27.2
+
+
+# ============================================================
+# ⚙️ Utilities & Environment
+# ============================================================
+python-dotenv==1.0.1
+charset-normalizer==3.4.3

@@ -1,0 +1,54 @@
+{
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margin_mm": {
+      "top": 22,
+      "right": 18,
+      "bottom": 18,
+      "left": 18
+    },
+    "gutter_mm": 6
+  },
+  "columns": [
+    {
+      "id": "main",
+      "width": "100%"
+    }
+  ],
+  "flow": [
+    {
+      "column": "main",
+      "blocks": [
+        "header_name",
+        "links_inline",
+        "text_section:summary",
+        "projects",
+        "education"
+      ]
+    }
+  ],
+  "overrides": {},
+  "map_rules": {
+    "text_section": {
+      "from": "summary",
+      "fn": "text"
+    },
+    "key_skills": {
+      "from": "skills",
+      "fn": "list"
+    },
+    "languages": {
+      "from": "languages",
+      "fn": "list"
+    },
+    "projects": {
+      "from": "projects",
+      "fn": "projects"
+    },
+    "education": {
+      "from": "education",
+      "fn": "list"
+    }
+  }
+}

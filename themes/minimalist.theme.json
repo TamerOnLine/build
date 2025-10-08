@@ -1,0 +1,44 @@
+{
+  "theme_name": "minimalist",
+  "ui_lang": "en",
+  "rtl_mode": false,
+  "colors": {
+    "primary": "#111111",
+    "text": "#000000",
+    "accent": "#000000",
+    "bg": "#FFFFFF"
+  },
+  "fonts": {
+    "base": "DejaVuSans",
+    "bold": "DejaVuSans-Bold",
+    "heading": "DejaVuSans-Bold"
+  },
+  "sizes": {
+    "h1": 18,
+    "h2": 12,
+    "h3": 11,
+    "body": 10,
+    "lead_h1": 22,
+    "lead_h2": 18,
+    "lead_h3": 16,
+    "lead_body": 14
+  },
+  "sp_after_header": 6,
+  "sp_after_par": 5,
+  "sp_after_list": 5,
+  "overrides": {
+    "header_name": {
+      "data": {
+        "centered": false,
+        "highlight_bg": "#FFFFFF",
+        "box_h_mm": 22
+      }
+    },
+    "left_panel_bg": {
+      "data": {
+        "pad_mm": 0,
+        "bg": "#FFFFFF"
+      }
+    }
+  }
+}

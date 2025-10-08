@@ -1,0 +1,43 @@
+{
+  "theme_name": "arabic-elegant",
+  "ui_lang": "ar",
+  "rtl_mode": true,
+  "colors": {
+    "primary": "#1E3A8A",
+    "text": "#111827",
+    "accent": "#2563EB",
+    "bg": "#FFFFFF"
+  },
+  "fonts": {
+    "base": "NotoNaskhArabic",
+    "bold": "NotoNaskhArabic-Bold",
+    "heading": "NotoNaskhArabic-Bold"
+  },
+  "sizes": {
+    "h1": 22,
+    "h2": 16,
+    "h3": 13,
+    "body": 12,
+    "lead_h1": 26,
+    "lead_h2": 20,
+    "lead_body": 15
+  },
+  "sp_after_header": 10,
+  "sp_after_par": 8,
+  "sp_after_list": 8,
+  "overrides": {
+    "header_name": {
+      "data": {
+        "centered": true,
+        "highlight_bg": "#E0E7FF",
+        "box_h_mm": 30
+      }
+    },
+    "left_panel_bg": {
+      "data": {
+        "pad_mm": 8,
+        "bg": "#F1F5F9"
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+site_name: Build Docs
+site_url: https://tameronline.github.io/build/
+repo_url: https://github.com/TamerOnLine/build
+repo_name: TamerOnLine/build
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - FAQ: faq.md
+  - API:
+      - Builder: api/builder.md
+      - Profiles: api/profiles.md
+  - Blocks:
+      - Catalog: blocks/catalog.md
+      - Index: blocks/index.md
+  - CI:
+      - Blocks Smoke: ci/ci-blocks.md
+      - E2E Flow: ci/ci-e2e.md
+  - Pipelines:
+      - Overview: pipelines/overview.md
+      - E2E: pipelines/e2e.md

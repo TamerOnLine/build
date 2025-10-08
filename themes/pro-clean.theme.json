@@ -1,0 +1,50 @@
+{
+  "theme_name": "pro-clean",
+  "ui_lang": "en",
+  "rtl_mode": false,
+  "colors": {
+    "primary": "#0F172A",
+    "text": "#111827",
+    "accent": "#2563EB",
+    "bg": "#FFFFFF"
+  },
+  "fonts": {
+    "base": "NotoNaskhArabic",
+    "bold": "NotoNaskhArabic-Bold",
+    "heading": "NotoNaskhArabic-Bold"
+  },
+  "sizes": {
+    "h1": 20,
+    "h2": 13,
+    "h3": 11,
+    "body": 10,
+    "lead_h1": 24,
+    "lead_h2": 18,
+    "lead_h3": 15,
+    "lead_body": 14
+  },
+  "sp_after_header": 8,
+  "sp_after_par": 6,
+  "sp_after_list": 6,
+  "overrides": {
+    "header_name": {
+      "data": {
+        "centered": false,
+        "highlight_bg": "#EEF2FF",
+        "box_h_mm": 26
+      }
+    },
+    "left_panel_bg": {
+      "data": {
+        "pad_mm": 6,
+        "bg": "#F8FAFC"
+      }
+    },
+    "projects": {
+      "data": {
+        "title_bold": true,
+        "gap_mm": 2.5
+      }
+    }
+  }
+}

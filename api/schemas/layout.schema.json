@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/schemas/layout.schema.json",
+  "title": "Resume Layout",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "size": { "type": "string", "enum": ["A4", "Letter"] },
+        "orientation": { "type": "string", "enum": ["portrait", "landscape"] },
+        "margin_mm": {
+          "type": "object",
+          "properties": {
+            "top": { "type": "number" },
+            "right": { "type": "number" },
+            "bottom": { "type": "number" },
+            "left": { "type": "number" }
+          },
+          "required": ["top", "right", "bottom", "left"]
+        },
+        "gutter_mm": { "type": "number", "minimum": 0 }
+      }
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "width": {
+            "description": "Percentage string like '33%'",
+            "type": "string",
+            "pattern": "^[0-9]+(\\.[0-9]+)?%$"
+          },
+          "gutter_mm": { "type": "number", "minimum": 0 }
+        },
+        "required": ["id", "width"]
+      }
+    },
+    "flow": {
+      "description": "Preferred over legacy `layout`.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "column": { "type": "string" },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "block_id": { "type": "string", "minLength": 1 },
+                    "data": { "type": "object" },
+                    "frame": {
+                      "type": "object",
+                      "properties": {
+                        "x": { "type": "number" },
+                        "y": { "type": "number" },
+                        "w": { "type": "number" }
+                      }
+                    }
+                  },
+                  "required": ["block_id"]
+                }
+              ]
+            }
+          }
+        },
+        "required": ["column", "blocks"]
+      }
+    },
+    "layout": {
+      "description": "Legacy flat list of blocks; used only when `flow` is absent.",
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string", "minLength": 1 },
+          {
+            "type": "object",
+            "properties": {
+              "block_id": { "type": "string", "minLength": 1 },
+              "data": { "type": "object" },
+              "frame": {
+                "type": "object",
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" },
+                  "w": { "type": "number" }
+                }
+              }
+            },
+            "required": ["block_id"],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "overrides": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "object" },
+          "frame": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "w": { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "anyOf": [
+    { "required": ["flow"] },
+    { "required": ["layout"] }
+  ]
+}

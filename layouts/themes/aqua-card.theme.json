@@ -1,0 +1,11 @@
+{
+  "fonts": { "base": "Helvetica", "heading": "Helvetica-Bold", "rtl": "NotoNaskhArabic" },
+  "colors": {
+    "primary": "#0284C7",
+    "accent": "#0EA5E9",
+    "text": "#1E293B",
+    "muted": "#64748B",
+    "panel_bg": "#F7F8FA"
+  },
+  "page": { "margin_mm": { "top": 15, "right": 12, "bottom": 15, "left": 12 }, "gutter_mm": 6 }
+}

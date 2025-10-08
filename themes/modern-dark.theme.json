@@ -1,0 +1,44 @@
+{
+  "theme_name": "modern-dark",
+  "ui_lang": "en",
+  "rtl_mode": false,
+  "colors": {
+    "primary": "#93C5FD",
+    "text": "#E5E7EB",
+    "accent": "#60A5FA",
+    "bg": "#0B1020"
+  },
+  "fonts": {
+    "base": "DejaVuSans",
+    "bold": "DejaVuSans-Bold",
+    "heading": "DejaVuSans-Bold"
+  },
+  "sizes": {
+    "h1": 20,
+    "h2": 13,
+    "h3": 11,
+    "body": 10,
+    "lead_h1": 24,
+    "lead_h2": 19,
+    "lead_h3": 16,
+    "lead_body": 14
+  },
+  "sp_after_header": 8,
+  "sp_after_par": 6,
+  "sp_after_list": 6,
+  "overrides": {
+    "header_name": {
+      "data": {
+        "centered": false,
+        "highlight_bg": "#11183A",
+        "box_h_mm": 26
+      }
+    },
+    "left_panel_bg": {
+      "data": {
+        "pad_mm": 6,
+        "bg": "#0F172A"
+      }
+    }
+  }
+}

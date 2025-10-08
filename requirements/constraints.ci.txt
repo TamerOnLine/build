@@ -1,0 +1,6 @@
+# Common dependency pins to prevent version conflicts
+pluggy==1.5.0          # required by pytest 8
+click==8.1.7           # compatible with uvicorn and streamlit
+protobuf==5.28.2       # within the safe range for streamlit (<6)
+watchdog==4.0.2        # stable file-watching dependency for Streamlit
+rich==13.9.4           # compatible console rendering for multiple tools

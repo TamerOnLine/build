@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/schemas/theme.schema.json",
+  "title": "Resume Theme",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "fonts": {
+      "type": "object",
+      "properties": {
+        "base": { "type": "string" },
+        "heading": { "type": "string" },
+        "rtl": { "type": "string" }
+      }
+    },
+    "colors": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "page": {
+      "type": "object",
+      "properties": {
+        "margin_mm": {
+          "type": "object",
+          "properties": {
+            "top": { "type": "number" },
+            "right": { "type": "number" },
+            "bottom": { "type": "number" },
+            "left": { "type": "number" }
+          }
+        },
+        "gutter_mm": { "type": "number", "minimum": 0 }
+      }
+    },
+    "layout": {
+      "description": "Optional default flow/columns/page inherited by layout unless overridden.",
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
