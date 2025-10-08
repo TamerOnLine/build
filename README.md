@@ -1,95 +1,183 @@
-# CodeSentry — Intelligent Python Project Auditor & Cleaner
+<div align="center">
 
-> Audit your Python repo (FastAPI + Streamlit + ReportLab friendly), merge **static analysis** with **runtime coverage**, classify files, and generate a **clean, deploy‑ready build**.
+# 🧩 **Resume Builder**
+### FastAPI + Streamlit + ReportLab + PostgreSQL
+
+> 🧠 A modular and intelligent system to create, edit, and export professional resumes as PDF files.
 
 <p align="center">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.9%2B-blue" />
-  <img alt="OS" src="https://img.shields.io/badge/OS-Windows%20%7C%20Linux%20%7C%20macOS-informational" />
-  <img alt="Status" src="https://img.shields.io/badge/Status-Alpha-orange" />
-  <img alt="License" src="https://img.shields.io/badge/License-MIT-lightgrey" />
+  <img src="https://img.shields.io/badge/Python-3.10%2B-blue.svg" />
+  <img src="https://img.shields.io/badge/FastAPI-Backend-success" />
+  <img src="https://img.shields.io/badge/Streamlit-Frontend-ff4b4b" />
+  <img src="https://img.shields.io/badge/ReportLab-PDF%20Engine-f9c00c" />
+  <img src="https://img.shields.io/badge/License-MIT-lightgrey" />
 </p>
 
----
-
-## ✨ What it does
-
-CodeSentry crawls your repository from given entry points, builds an **import graph**, optionally ingests a `coverage.xml` report, and then **classifies every file** into:  
-- `core` — essential runtime code (e.g., `api/`, `streamlit/`, `api/pdf_utils/*`, `themes/`, `layouts/`)  
-- `support` — helpers and developer tools (e.g., `tools/`, `dev_tools/`, `debug_*`, etc.)  
-- `non_essential` — docs, samples, outputs  
-- `generated` — build artifacts and temporary files
-
-From this, it produces:  
-- `project_file_roles.json` — a machine‑readable report  
-- Safe delete scripts: `safe_delete.ps1` / `safe_delete.sh` (move to `.trash/`, **never** hard‑delete)  
-- Optional **clean build** directory `clean_build/` containing only what's required to run.
-
-> Built and tested on projects that combine **FastAPI**, **Streamlit**, and **ReportLab**, but adaptable to other Python layouts.
+</div>
 
 ---
 
-## 🧩 Why CodeSentry?
-- **Coverage‑aware**: combines static imports with real execution traces.
-- **Layout/theme awareness**: can scan `layouts/*.json` and `themes/*` to include referenced assets and blocks.
-- **Cross‑platform**: works on Windows, Linux, macOS. Generates both `.ps1` and `.sh` helpers.
-- **Non‑destructive by default**: everything goes to `.trash/` until you confirm.
-- **Clean deploys**: produce a minimal `clean_build/` for packaging or hosting.
+## 🚀 **Overview**
+
+**Resume Builder** is a full-stack platform to design and export resumes (CVs) as dynamic PDFs.  
+It combines:
+
+- 🎨 **Streamlit UI** — interactive editor for profile data, sections, and themes  
+- ⚙️ **FastAPI Backend** — REST endpoints for PDF generation and data management  
+- 🧱 **ReportLab Engine** — pixel-perfect PDF builder with advanced layouts  
+- 💾 **PostgreSQL / SQLite** — persistent user profiles and customization settings  
 
 ---
 
-## 📦 Installation
+## 🧩 **System Architecture**
 
-Clone or copy the tool into your repository (common path: `dev_tools/audit_files_pro.py`). Ensure you have Python 3.9+.
-
-```bash
-python -m pip install --upgrade pip
-python -m pip install coverage uvicorn streamlit
+```mermaid
+graph LR
+    subgraph Frontend
+        ST[🖥️ Streamlit UI]
+    end
+    subgraph Backend
+        API[⚙️ FastAPI Service]
+    end
+    subgraph Core
+        PDF[📦 ReportLab Builder]
+        DB[(🗄️ Database)]
+    end
+    ST -->|POST JSON| API
+    API --> PDF
+    API --> DB
+    PDF -->|Return PDF| API
+    API -->|Response| ST
 ```
 
-> You do **not** need Docker. CodeSentry is a plain Python CLI.
+> 💡 Streamlit communicates with **humans**, FastAPI communicates with **machines** — together they form a complete ecosystem.
 
 ---
 
-## 🚀 Quickstart
+## 📁 **Folder Structure**
 
-1) **(Optional)** Generate a runtime coverage report while hitting your endpoints/UI:
-
-```bash
-coverage run -m uvicorn api.main:app --host 127.0.0.1 --port 8000 & coverage xml
 ```
-
-```bash
-streamlit run streamlit/app.py
-```
-
-
-2) **Audit + produce reports**:
-```bash
-python dev_tools/audit_files_pro.py --coverage-xml coverage.xml
-```
-
-3) **Create a clean build**:
-```bash
-python dev_tools/audit_files_pro.py --coverage-xml coverage.xml --make-clean-build
-```
-
-4) **Move non‑essentials to `.trash/`**:
-```bash
-./safe_delete.ps1
-bash ./safe_delete.sh
+build/
+├── api/                # FastAPI backend
+│   ├── main.py         # API entry
+│   ├── routes/         # /profiles, /generate, etc.
+│   └── pdf_utils/      # ReportLab-based engine
+├── st_app/             # Streamlit frontend
+│   ├── app.py          # Main UI
+│   ├── core/           # API client & schema tools
+│   ├── ui/             # Sidebar & tabs
+│   └── widgets/        # Alerts, PDF preview
+├── layouts/            # Layout JSONs
+├── themes/             # Theme configurations
+├── profiles/           # Saved user profiles
+└── tools/              # Developer utilities
 ```
 
 ---
 
-## 🔒 Safety
-- No hard deletes.
-- Move to `.trash/` only.
-- `--protect` can whitelist paths.
+## ⚙️ **Setup & Installation**
+
+### 🔹 1. Clone Repository
+```bash
+git clone https://github.com/TamerOnLine/resume-builder.git
+cd resume-builder
+```
+
+### 🔹 2. Create Virtual Environment
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+```
+
+### 🔹 3. Install Requirements
+```bash
+pip install -r requirements/requirements.full.txt
+```
+
+### 🔹 4. Run Backend (FastAPI)
+```bash
+uvicorn api.main:app --reload --port 8000
+```
+➡️ Open Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+### 🔹 5. Run Frontend (Streamlit)
+```bash
+streamlit run st_app/app.py
+```
+➡️ Access UI: [http://localhost:8501](http://localhost:8501)
 
 ---
 
-## 🌍 عربي — ملخص سريع
-- **CodeSentry** أداة تفحص مشروعك بايثون وتُنشئ مجلد **clean_build/** جاهز للنشر.
-- الأوامر الأساسية:
-  - `python dev_tools/audit_files_pro.py --coverage-xml coverage.xml --make-clean-build`
-  - `safe_delete.ps1/.sh` لنقل الملفات الزائدة.
+## 🧠 **Core Features**
+
+| 🚀 Feature | Description |
+|-------------|-------------|
+| 🖥️ **Interactive UI** | Live editing with Streamlit |
+| ⚙️ **REST API** | `/generate-form-simple` to build PDFs |
+| 🧾 **ReportLab Engine** | Precise, professional PDF generation |
+| 🧩 **Modular Sections** | Header, Skills, Projects, Education, etc. |
+| 🎨 **Themes & Layouts** | Aqua Card, Modern Dark, Pro Clean, etc. |
+| 💾 **Database Integration** | PostgreSQL or SQLite |
+| 🧪 **Testing & CI/CD** | Pytest + GitHub Actions (E2E coverage) |
+
+---
+
+## 📡 **API Example**
+
+```bash
+POST /generate-form-simple
+Content-Type: application/json
+
+{
+  "theme_name": "aqua-card",
+  "profile": {
+    "header": {"name": "Tamer OnLine", "title": "Software Developer"},
+    "skills": ["FastAPI", "PostgreSQL", "ReportLab"],
+    "languages": ["Arabic", "English", "German"]
+  }
+}
+```
+
+➡️ **Response:** PDF bytes (`application/pdf`)
+
+---
+
+## 🧱 **Technology Stack**
+
+| Layer | Technology |
+|-------|-------------|
+| Frontend | Streamlit |
+| Backend | FastAPI |
+| Core Engine | ReportLab |
+| Database | PostgreSQL / SQLite |
+| Language | Python 3.10+ |
+| CI/CD | GitHub Actions |
+
+---
+
+## ☁️ **Deployment Options**
+
+| Type | Platform | Description |
+|------|-----------|-------------|
+| 💻 Local | Streamlit / FastAPI | Run both locally on 8501 & 8000 |
+| 🌐 Cloud (Simple) | Streamlit Cloud | Streamlit-only version |
+| ⚙️ Cloud (Full) | Render / Railway | FastAPI + Streamlit combo |
+| 🧭 Reverse Proxy | Nginx / Traefik | Unified domain (`/` → UI, `/api` → API) |
+
+---
+
+## 🧾 **License**
+
+MIT License © 2025 — [TamerOnLine](https://github.com/TamerOnLine)
+
+---
+
+<div align="center">
+
+### 👤 **Author — Tamer Hamad Faour**
+**Software Developer & AI Tool Builder**  
+Focused on FastAPI • Streamlit • PostgreSQL • ReportLab  
+
+🌐 [GitHub](https://github.com/TamerOnLine) │ [LinkedIn](https://linkedin.com/in/tameronline)
+
+</div>
