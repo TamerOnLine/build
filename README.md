@@ -6,12 +6,32 @@
 > 🧠 A modular and intelligent system to create, edit, and export professional resumes as PDF files.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10%2B-blue.svg" />
-  <img src="https://img.shields.io/badge/FastAPI-Backend-success" />
-  <img src="https://img.shields.io/badge/Streamlit-Frontend-ff4b4b" />
-  <img src="https://img.shields.io/badge/ReportLab-PDF%20Engine-f9c00c" />
-  <img src="https://img.shields.io/badge/License-MIT-lightgrey" />
+  <a href="https://www.python.org/" target="_blank">
+    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+">
+  </a>
+  <a href="https://fastapi.tiangolo.com/" target="_blank">
+    <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI">
+  </a>
+  <a href="https://streamlit.io/" target="_blank">
+    <img src="https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white" alt="Streamlit">
+  </a>
+  <a href="#" target="_blank">
+    <img src="https://img.shields.io/badge/Backend-28a745" alt="Backend">
+  </a>
+  <a href="#" target="_blank">
+    <img src="https://img.shields.io/badge/Frontend-DC3545" alt="Frontend">
+  </a>
+  <a href="https://www.reportlab.com/dev/docs/" target="_blank">
+    <img src="https://img.shields.io/badge/ReportLab-0A0A0A" alt="ReportLab">
+  </a>
+  <a href="#" target="_blank">
+    <img src="https://img.shields.io/badge/PDF%20Engine-FFC107" alt="PDF Engine">
+  </a>
+  <a href="https://opensource.org/licenses/MIT" target="_blank">
+    <img src="https://img.shields.io/badge/License-MIT-6c757d" alt="License: MIT">
+  </a>
 </p>
+
 
 </div>
 
