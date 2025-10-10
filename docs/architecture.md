@@ -1,6 +1,6 @@
 # Architecture (Mermaid for GitHub – safe labels)
 
-This variant avoids characters that break old Mermaid on GitHub: no `{}`, `/`, `()` in node texts or edge labels.
+This variant avoids characters that break older Mermaid on GitHub in **node texts** and **edge labels** (no `{}`, `()` in labels). We use `:id` instead of `{id}`.
 
 ---
 
@@ -10,9 +10,9 @@ flowchart LR
   U[User] -->|inputs| UI[Frontend - Streamlit UI]
 
   UI -->|POST /generate-form-simple| API1[FastAPI generate-form-simple]
-  UI -->|GET /api/profiles/{id}| API2[FastAPI profiles-id]
+  UI -->|GET /api/profiles/:id| API2[FastAPI profiles-id]
   UI -->|POST /api/profiles| API6[FastAPI profiles]
-  UI -->|PATCH /api/profiles/{id}| API7[FastAPI profiles-id]
+  UI -->|PATCH /api/profiles/:id| API7[FastAPI profiles-id]
   UI -->|PATCH /api/settings/sections| API3[FastAPI settings-sections]
   UI -->|PATCH /api/settings/projects| API4[FastAPI settings-projects]
   UI -->|PATCH /api/settings/items| API5[FastAPI settings-items]
@@ -41,7 +41,6 @@ flowchart LR
   PDF -->|pdf bytes| UI
   UI -->|download| U
 ```
-
 ---
 
 ## 2) Request Sequence (generate PDF)
@@ -54,23 +53,22 @@ sequenceDiagram
   participant PDF as ReportLab Engine
 
   User->>UI: edit fields
-  UI->>API: POST profiles
+  UI->>API: POST /api/profiles
   API->>DB: insert or update user_profiles
   DB-->>API: ok
   API-->>UI: id and status
 
   User->>UI: click Generate PDF
-  UI->>API: POST pdf_generate
+  UI->>API: POST /generate-form-simple
   API->>DB: select user_profiles
   API->>DB: select user_section_settings
   API->>DB: select user_project_settings
   API->>DB: select user_item_settings
   API->>PDF: render
   PDF-->>API: resume pdf
-  API-->>UI: application pdf
+  API-->>UI: application/pdf
   UI-->>User: preview or download
 ```
-
 ---
 
 ## 3) Deployment Diagram
