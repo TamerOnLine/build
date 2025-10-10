@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import base64
+import re
 import streamlit as st
 
 from core.paths import THEMES_DIR, LAYOUTS_DIR
@@ -16,6 +17,7 @@ from st_app.config.ui_defaults import (
     DEFAULT_THEME_FALLBACK,
 )
 
+
 def _clean_name(name: str) -> str:
     """أزل .json وافرغ المسافات وحدد اسمًا صالحًا للحفظ في API."""
     n = (name or "").strip()
@@ -25,10 +27,7 @@ def _clean_name(name: str) -> str:
 
 
 def _apply_photo_b64_to_session(profile: dict) -> None:
-    """
-    إن وُجد photo_b64 داخل البروفايل المحمَّل/المستورَد،
-    حوّله إلى photo_bytes في حالة الجلسة لعرضه فورًا واستخدامه في PDF.
-    """
+    """إن وُجد photo_b64 داخل البروفايل المحمَّل/المستورَد، حوله إلى photo_bytes للعرض."""
     b64 = profile.get("photo_b64")
     if not b64:
         return
@@ -40,18 +39,80 @@ def _apply_photo_b64_to_session(profile: dict) -> None:
         st.session_state.photo_mime = None
 
 
+# ✅ وظيفة جديدة لتجميع آخر القيم من واجهة المستخدم قبل الحفظ
+def collect_latest_profile(profile: dict) -> dict:
+    """يجمع أحدث القيم من واجهة المستخدم قبل إرسالها إلى API."""
+    rev = st.session_state.get("profile_rev", 0)
+
+    def _s(x):
+        return "" if x is None else str(x).strip()
+
+    # Basic Info
+    full_name = _s(st.session_state.get(f"full_name_{rev}", profile.get("basic", {}).get("full_name", "")))
+    title = _s(st.session_state.get(f"title_{rev}", profile.get("basic", {}).get("title", "")))
+
+    # Contact Info
+    email = _s(st.session_state.get(f"email_{rev}", ""))
+    phone = _s(st.session_state.get(f"phone_{rev}", ""))
+    website = _s(st.session_state.get(f"website_{rev}", ""))
+    github = _s(st.session_state.get(f"github_{rev}", ""))
+    linkedin = _s(st.session_state.get(f"linkedin_{rev}", ""))
+    location = _s(st.session_state.get(f"location_{rev}", ""))
+
+    def norm_url(u: str) -> str:
+        if not u:
+            return ""
+        u = u.strip()
+        if u.startswith(("http://", "https://")):
+            return u
+        return f"https://{u}"
+
+    def norm_phone(p: str) -> str:
+        p = re.sub(r"[^\d+\-\s()]", "", p or "")
+        return re.sub(r"\s+", " ", p).strip()
+
+    # تنسيق الروابط إن كانت بدون بروتوكول
+    if github and "://" not in github and "/" not in github.strip("/"):
+        github = f"https://github.com/{github}"
+    github = norm_url(github) if github else ""
+
+    if linkedin and "://" not in linkedin and "/" not in linkedin.strip("/"):
+        linkedin = f"https://www.linkedin.com/in/{linkedin}"
+    linkedin = norm_url(linkedin) if linkedin else ""
+
+    website = norm_url(website) if website else ""
+    phone = norm_phone(phone)
+
+    # البريد الفارغ → None
+    email_json = email if email.strip() else None
+
+    # بناء بروفايل جديد محدث
+    profile = profile.copy()
+    profile.setdefault("basic", {})
+    profile.setdefault("contact", {})
+    profile["basic"].update({"full_name": full_name, "title": title})
+    profile["contact"].update(
+        {
+            "email": email_json,
+            "phone": phone,
+            "website": website,
+            "github": github,
+            "linkedin": linkedin,
+            "location": location,
+        }
+    )
+
+    return profile
+
+
 def render_sidebar() -> dict:
-    """
-    يُعيد إعدادات:
-    { base_url, ui_lang, rtl_mode, theme_name, layout_file }
-    """
+    """واجهة التحكم الجانبية."""
     with st.sidebar:
         st.header("Controls")
 
         # ===== إعداد عنوان الـ API =====
         base_no_api = st.text_input("API Base URL", value=DEFAULT_API_BASE, key="api_base")
-
-        api.BASE = f"{base_no_api.rstrip('/')}/api"  # مزامنة BASE في عميل الـAPI
+        api.BASE = f"{base_no_api.rstrip('/')}/api"
 
         # ===== إعدادات الطباعة =====
         ui_lang = st.selectbox("UI Language", UI_LANG_OPTIONS, index=0, key="ui_lang")
@@ -66,7 +127,7 @@ def render_sidebar() -> dict:
             ["(none)"] + layout_files,
             index=1 if layout_files else 0,
             key="layout_file",
-            help="اختر ملف لايـاوت من /layouts. إن كان (none) سيُرسل بدون inline layout.",
+            help="اختر ملف لايـاوت من /layouts.",
         )
 
         st.markdown("---")
@@ -74,7 +135,7 @@ def render_sidebar() -> dict:
 
         # ===== قائمة الأسماء من API =====
         try:
-            existing_profiles = api.list_profiles()  # أسماء بدون .json
+            existing_profiles = api.list_profiles()
         except Exception as e:
             st.error(f"API list error: {e}")
             existing_profiles = []
@@ -94,11 +155,7 @@ def render_sidebar() -> dict:
                     try:
                         loaded = api.load_profile(selected_profile)
                         st.session_state.profile = ensure_profile_schema(loaded)
-
-                        # لو الصورة محفوظة داخل JSON كـ base64، ضَعها في الجلسة لعرضها مباشرة
                         _apply_photo_b64_to_session(st.session_state.profile)
-
-                        # إجبار إعادة تحميل الودجتس (keys مربوطة بـ profile_rev)
                         st.session_state.profile_rev = st.session_state.get("profile_rev", 0) + 1
                         st.rerun()
                     except Exception as e:
@@ -110,9 +167,11 @@ def render_sidebar() -> dict:
             if st.button("Save Profile", key="btn_save_profile_api"):
                 try:
                     name = _clean_name(profile_name_in)
-                    payload = ensure_profile_schema(st.session_state.get("profile", {}))
+                    # ✅ التحديث من واجهة المستخدم قبل الحفظ
+                    current = st.session_state.get("profile", {})
+                    payload = collect_latest_profile(ensure_profile_schema(current))
 
-                    # لو في صورة في الجلسة، خزّنها داخل البروفايل كـ photo_b64
+                    # تضمين الصورة إن وُجدت
                     if st.session_state.get("photo_bytes"):
                         payload["photo_b64"] = base64.b64encode(st.session_state["photo_bytes"]).decode("ascii")
 
@@ -128,11 +187,7 @@ def render_sidebar() -> dict:
             try:
                 imported = json.loads(up.getvalue().decode("utf-8"))
                 st.session_state.profile = ensure_profile_schema(imported)
-
-                # لو JSON فيه photo_b64، أعِد بنائها في الجلسة
                 _apply_photo_b64_to_session(st.session_state.profile)
-
-                # أجبر تحديث الودجتس
                 st.session_state.profile_rev = st.session_state.get("profile_rev", 0) + 1
                 st.success("Imported profile applied to the form.")
                 st.rerun()
@@ -154,7 +209,7 @@ def render_sidebar() -> dict:
             )
 
     return {
-        "base_url": base_no_api,  # بدون /api — يُستخدم لاحقًا للتوليد
+        "base_url": base_no_api,
         "ui_lang": ui_lang,
         "rtl_mode": rtl_mode,
         "theme_name": theme_name,

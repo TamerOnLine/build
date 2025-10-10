@@ -1,7 +1,7 @@
 ﻿from pathlib import Path
 import os, json, re
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 
 # ===================================================================
 # المجلد الافتراضي لتخزين ملفات البروفايلات
@@ -44,6 +44,13 @@ class Contact(BaseModel):
     github: str | None = None
     linkedin: str | None = None
     location: str | None = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _empty_email_to_none(cls, v):
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
 
 
 class Profile(BaseModel):

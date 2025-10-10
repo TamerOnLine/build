@@ -1,6 +1,6 @@
 ﻿# streamlit/ui/tab_contact.py
 from __future__ import annotations
-from typing import Any, Dict
+from typing import Any
 import copy
 import re
 import streamlit as st
@@ -10,12 +10,13 @@ from st_app.config.ui_defaults import (
     MAX_EMAIL, MAX_URL, MAX_PHONE, MAX_GH, MAX_LI, MAX_LOC,
 )
 
-
-
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+
 def _s(x: Any) -> str:
+    """Normalize None -> '' and strip strings for safe UI usage."""
     return "" if x is None else str(x).strip()
+
 
 def _normalize_url(u: str) -> str:
     if not u:
@@ -23,32 +24,36 @@ def _normalize_url(u: str) -> str:
     u = u.strip()
     if u.startswith(("http://", "https://")):
         return u
-    # treat naked handles as full URLs for github/linkedin later
+    # Treat naked handles/hosts as full URLs
     return f"https://{u}"
 
+
 def _normalize_phone(p: str) -> str:
-    # keep digits, +, spaces, hyphens, parentheses; collapse spaces
+    """Keep digits, +, spaces, hyphens, parentheses; collapse spaces."""
     p = re.sub(r"[^\d+\-\s()]", "", p or "")
     return re.sub(r"\s+", " ", p).strip()
+
 
 def _maybe_warn_email(email: str) -> None:
     if email and not EMAIL_RE.match(email):
         st.caption("⚠️ That email doesn’t look valid.")
 
+
 def _maybe_warn_url(label: str, url: str) -> None:
     if url and "." not in url:
         st.caption(f"⚠️ {label} looks unusual.")
+
 
 def render(profile: dict) -> dict:
     st.subheader("Contact Info")
     rev = st.session_state.get("profile_rev", 0)
 
     contact = dict(profile.get("contact") or {})
-    email_init    = _s(contact.get("email"))
-    phone_init    = _s(contact.get("phone"))
-    website_init  = _s(contact.get("website"))
-    gh_init       = _s(contact.get("github"))
-    li_init       = _s(contact.get("linkedin"))
+    email_init = _s(contact.get("email"))
+    phone_init = _s(contact.get("phone"))
+    website_init = _s(contact.get("website"))
+    gh_init = _s(contact.get("github"))
+    li_init = _s(contact.get("linkedin"))
     location_init = _s(contact.get("location"))
 
     changed = False
@@ -59,7 +64,7 @@ def render(profile: dict) -> dict:
                 "Email",
                 value=email_init,
                 key=f"email_{rev}",
-            placeholder=f"e.g., {PH_EMAIL}",
+                placeholder=f"e.g., {PH_EMAIL}",
                 help="Used on the PDF and for contact buttons.",
                 max_chars=MAX_EMAIL,
             )
@@ -127,7 +132,7 @@ def render(profile: dict) -> dict:
 
         website = _normalize_url(website) if website else ""
 
-        # gentle validation hints
+        # gentle validation hints (UI-only)
         _maybe_warn_email(email)
         _maybe_warn_url("Website", website)
         _maybe_warn_url("GitHub", github)
@@ -145,12 +150,16 @@ def render(profile: dict) -> dict:
             ]
         )
 
+        # --- IMPORTANT ---
+        # Convert empty email "" -> None for API (EmailStr | None)
+        email_json = email if email.strip() else None
+
         # write back
         new_profile = copy.deepcopy(profile)
         new_profile.setdefault("contact", {})
         new_profile["contact"].update(
             {
-                "email": email,
+                "email": email_json,
                 "phone": phone,
                 "website": website,
                 "github": github,
