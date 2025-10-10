@@ -9,13 +9,13 @@ This variant avoids characters that break old Mermaid on GitHub: no `{}`, `/`, `
 flowchart LR
   U[User] -->|inputs| UI[Frontend - Streamlit UI]
 
-  UI -->|POST /generate-form-simple| API1[FastAPI - /generate-form-simple]
-  UI -->|GET /api/profiles/{id}| API2[FastAPI - /api/profiles/{id}]
-  UI -->|POST /api/profiles| API6[FastAPI - /api/profiles]
-  UI -->|PATCH /api/profiles/{id}| API7[FastAPI - /api/profiles/{id}]
-  UI -->|PATCH /api/settings/sections| API3[FastAPI - /api/settings/sections]
-  UI -->|PATCH /api/settings/projects| API4[FastAPI - /api/settings/projects]
-  UI -->|PATCH /api/settings/items| API5[FastAPI - /api/settings/items]
+  UI -->|POST /generate-form-simple| API1[FastAPI generate-form-simple]
+  UI -->|GET /api/profiles/{id}| API2[FastAPI profiles-id]
+  UI -->|POST /api/profiles| API6[FastAPI profiles]
+  UI -->|PATCH /api/profiles/{id}| API7[FastAPI profiles-id]
+  UI -->|PATCH /api/settings/sections| API3[FastAPI settings-sections]
+  UI -->|PATCH /api/settings/projects| API4[FastAPI settings-projects]
+  UI -->|PATCH /api/settings/items| API5[FastAPI settings-items]
 
   subgraph Backend [Backend - FastAPI Layer]
     API1
@@ -40,7 +40,6 @@ flowchart LR
   API1 --> PDF
   PDF -->|pdf bytes| UI
   UI -->|download| U
-
 ```
 
 ---
