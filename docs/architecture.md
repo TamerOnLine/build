@@ -1,6 +1,6 @@
-# Architecture (Mermaid-compatible for GitHub)
+# Architecture (Mermaid for GitHub – safe labels)
 
-This version removes emojis, slashes in edge labels, and parentheses that may break older Mermaid renders on GitHub.
+This variant avoids characters that break old Mermaid on GitHub: no `{}`, `/`, `()` in node texts or edge labels.
 
 ---
 
@@ -9,13 +9,13 @@ This version removes emojis, slashes in edge labels, and parentheses that may br
 flowchart LR
   U[User] -->|inputs| UI[Frontend - Streamlit UI]
 
-  UI -->|POST pdf_generate| API1[FastAPI - /pdf/generate]
-  UI -->|GET profiles_id| API2[FastAPI - /profiles/{id}]
-  UI -->|POST profiles| API6[FastAPI - /profiles]
-  UI -->|PATCH profiles_id| API7[FastAPI - /profiles/{id}]
-  UI -->|PATCH settings_sections| API3[FastAPI - /settings/sections]
-  UI -->|PATCH settings_projects| API4[FastAPI - /settings/projects]
-  UI -->|PATCH settings_items| API5[FastAPI - /settings/items]
+  UI -->|POST pdf_generate| API1[FastAPI - pdf_generate]
+  UI -->|GET profiles_id| API2[FastAPI - profiles_id]
+  UI -->|POST profiles| API6[FastAPI - profiles]
+  UI -->|PATCH profiles_id| API7[FastAPI - profiles_id]
+  UI -->|PATCH settings_sections| API3[FastAPI - settings_sections]
+  UI -->|PATCH settings_projects| API4[FastAPI - settings_projects]
+  UI -->|PATCH settings_items| API5[FastAPI - settings_items]
 
   subgraph Backend [Backend - FastAPI Layer]
     API1
@@ -29,8 +29,8 @@ flowchart LR
     DB[(PostgreSQL)]
   end
 
-  API1 -->|select and merge settings| DB
-  API2 -->|CRUD user_profiles| DB
+  API1 -->|merge settings| DB
+  API2 -->|crud user_profiles| DB
   API3 -->|update user_section_settings| DB
   API4 -->|update user_project_settings| DB
   API5 -->|update user_item_settings| DB
@@ -53,21 +53,21 @@ sequenceDiagram
   participant DB as PostgreSQL
   participant PDF as ReportLab Engine
 
-  User->>UI: edit fields (profile, theme, layout)
-  UI->>API: POST /profiles
+  User->>UI: edit fields
+  UI->>API: POST profiles
   API->>DB: insert or update user_profiles
   DB-->>API: ok
-  API-->>UI: {id, status}
+  API-->>UI: id and status
 
   User->>UI: click Generate PDF
-  UI->>API: POST /pdf/generate
+  UI->>API: POST pdf_generate
   API->>DB: select user_profiles
   API->>DB: select user_section_settings
   API->>DB: select user_project_settings
   API->>DB: select user_item_settings
-  API->>PDF: render(profile, settings, theme, layout)
-  PDF-->>API: resume.pdf
-  API-->>UI: application/pdf
+  API->>PDF: render
+  PDF-->>API: resume pdf
+  API-->>UI: application pdf
   UI-->>User: preview or download
 ```
 
