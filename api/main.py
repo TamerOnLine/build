@@ -4,6 +4,9 @@ Exposes:
 - GET  /healthz
 - POST /generate-form-simple : build PDF from profile + (optional) layout/theme
 - /api/profiles/*            : save/load JSON profiles (via profiles router)
+- GET  /                     : PWA home (serves templates/index.html)
+- GET  /manifest.json        : PWA manifest (root scope)
+- GET  /service-worker.js    : PWA service worker (root scope)
 """
 
 from __future__ import annotations
@@ -14,8 +17,11 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 # 1) Register fonts (side-effect)
@@ -23,20 +29,42 @@ from api.pdf_utils import fonts  # noqa: F401
 from api.pdf_utils.builder import build_resume_pdf
 from api.pdf_utils.mapper import profile_to_overrides
 from api.routes import profiles as profiles_routes  # /api/profiles/*
-from api.pdf_utils.schema import ensure_profile_schema  # ✅ أضفنا هذا الاستيراد
+from api.pdf_utils.schema import ensure_profile_schema
+
+import asyncio
+import httpx
+from starlette.responses import StreamingResponse
+
 
 log = logging.getLogger("resume.api")
 logging.basicConfig(level=logging.INFO)
 
-APP_ROOT = Path(__file__).resolve().parent.parent
+# Project paths
+APP_ROOT = Path(__file__).resolve().parent.parent          # build/
+API_DIR   = Path(__file__).resolve().parent                # build/api
 THEMES_DIR = APP_ROOT / "themes"
 LAYOUTS_DIR = APP_ROOT / "layouts"
 
+# ---------------------------------------------------------------------
+# FastAPI app
+# ---------------------------------------------------------------------
 app = FastAPI(title="Resume API")
 
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------
+# PWA: root endpoints (so SW has scope '/')
+# ---------------------------------------------------------------------
+@app.get("/manifest.json")
+def manifest() -> FileResponse:
+    return FileResponse(API_DIR / "static" / "manifest.json", media_type="application/json")
+
+@app.get("/service-worker.js")
+def service_worker() -> FileResponse:
+    # Important: correct JS media type
+    return FileResponse(API_DIR / "static" / "service-worker.js", media_type="application/javascript")
+
+# ---------------------------------------------------------------------
 # CORS (tighten in production)
-# ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------
 ALLOWED_ORIGINS = [
     "http://localhost:8501",  # Streamlit (local)
     "http://127.0.0.1:8501",
@@ -49,16 +77,38 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-# Routes for profiles CRUD
+# ---------------------------------------------------------------------
+# Routers
+# ---------------------------------------------------------------------
 app.include_router(profiles_routes.router, prefix="/api")
 
+# ---------------------------------------------------------------------
+# Static & Templates
+# ---------------------------------------------------------------------
+# Serve api/static at /static (icons, extra assets...)
+app.mount("/static", StaticFiles(directory=str(API_DIR / "static")), name="static")
 
+# Templates
+templates = Jinja2Templates(directory=str(API_DIR / "templates"))
+
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request) -> HTMLResponse:
+    """PWA home page (renders templates/index.html)."""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+
+
+
+
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
 def normalize_theme_name(tn: Optional[str]) -> str:
     """Normalize an incoming theme name (drop '.theme.json' if present)."""
     if not tn:
         return "default"
     return tn[:-11] if tn.endswith(".theme.json") else tn
-
 
 def coerce_summary(profile: Dict[str, Any]) -> None:
     """If summary is a stringified list, convert it to a single joined string."""
@@ -68,13 +118,11 @@ def coerce_summary(profile: Dict[str, Any]) -> None:
         if s.startswith("[") and s.endswith("]"):
             try:
                 import ast
-
                 lst = ast.literal_eval(s)
                 if isinstance(lst, list):
                     profile["summary"] = " ".join(str(x) for x in lst if x)
             except Exception:
                 pass
-
 
 def _decode_headshots(node: Any) -> None:
     """Recursively convert avatar_circle.data.photo_b64 -> photo_bytes."""
@@ -93,7 +141,6 @@ def _decode_headshots(node: Any) -> None:
         for it in node:
             _decode_headshots(it)
 
-
 def _deep_merge_fill_missing(dst: dict, src: dict) -> dict:
     """
     Merge without overwriting existing keys in dst (fill-only-missing).
@@ -107,7 +154,6 @@ def _deep_merge_fill_missing(dst: dict, src: dict) -> dict:
             dst[k] = v
     return dst
 
-
 def _safe_read_layout_by_name(layout_name: str) -> Dict[str, Any]:
     """Read a JSON layout by name safely (prevent path traversal)."""
     candidate = (LAYOUTS_DIR / layout_name).resolve()
@@ -120,7 +166,9 @@ def _safe_read_layout_by_name(layout_name: str) -> Dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to read layout: {exc}")
 
-
+# ---------------------------------------------------------------------
+# Payload model
+# ---------------------------------------------------------------------
 class GeneratePayload(BaseModel):
     theme_name: Optional[str] = Field(default=None, description="Theme name or 'x.theme.json'")
     theme: Optional[str] = Field(default=None, description="Legacy alias for theme_name")
@@ -139,7 +187,9 @@ class GeneratePayload(BaseModel):
     def effective_theme_name(self) -> str:
         return normalize_theme_name(self.theme_name or self.theme)
 
-
+# ---------------------------------------------------------------------
+# Lifecycle & health
+# ---------------------------------------------------------------------
 @app.on_event("startup")
 def _startup() -> None:
     try:
@@ -148,12 +198,13 @@ def _startup() -> None:
     except Exception as exc:
         log.warning("Font registration failed: %s", exc)
 
-
 @app.get("/healthz")
 def healthz() -> Dict[str, bool]:
     return {"ok": True}
 
-
+# ---------------------------------------------------------------------
+# PDF generation endpoint
+# ---------------------------------------------------------------------
 @app.post("/generate-form-simple")
 def generate_form_simple(payload: Dict[str, Any]) -> Response:
     """Generate a resume PDF from the provided payload."""
@@ -170,7 +221,7 @@ def generate_form_simple(payload: Dict[str, Any]) -> Response:
         "profile": args.profile or {},
     }
 
-    # ✅ Normalize profile data before PDF build
+    # Normalize profile data before PDF build
     data["profile"] = ensure_profile_schema(data["profile"])
 
     # Resolve layout_inline (prefer inline, else by name)

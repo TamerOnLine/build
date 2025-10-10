@@ -11,8 +11,18 @@ import json
 import base64
 import requests
 
+
+
+
+
 st.set_page_config(page_title="Resume Builder", page_icon="", layout="wide")
 st.title("Resume Builder Streamlit")
+
+
+
+
+
+
 
 # ============================================================
 

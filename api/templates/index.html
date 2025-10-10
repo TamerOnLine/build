@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tamer Resume Builder</title>
+
+  <!-- روابط الـ PWA -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0d47a1" />
+  <link rel="icon" href="/static/icons/icon-192.png" />
+
+  <!-- تسجيل الـ Service Worker -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/service-worker.js")
+          .then(() => console.log("Service Worker registered"))
+          .catch(console.error);
+      });
+    }
+  </script>
+
+  <!-- تصميم بسيط -->
+  <style>
+    body {
+      font-family: "Segoe UI", Roboto, sans-serif;
+      background: #f9fafc;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      color: #0d47a1;
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    p {
+      color: #555;
+      margin-bottom: 2rem;
+    }
+    a.button {
+      display: inline-block;
+      padding: 0.9rem 1.6rem;
+      background: #0d47a1;
+      color: #fff;
+      font-weight: 500;
+      border-radius: 0.6rem;
+      text-decoration: none;
+      transition: background 0.25s ease;
+    }
+    a.button:hover {
+      background: #1565c0;
+    }
+    footer {
+      position: absolute;
+      bottom: 1rem;
+      font-size: 0.85rem;
+      color: #777;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🚀 Tamer Resume Builder</h1>
+  <p>Welcome to your portable Resume Builder API (PWA).</p>
+
+  <!-- الزر الذي يفتح واجهة Streamlit -->
+  <a class="button" href="http://127.0.0.1:8501/" target="_blank">
+    Open Resume Builder UI
+  </a>
+
+  
+</body>
+<footer>© 2025 TamerOnLine — All rights reserved</footer>
+</html>

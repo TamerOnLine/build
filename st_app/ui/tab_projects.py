@@ -1,17 +1,14 @@
-﻿# streamlit/ui/tab_projects.py
-from __future__ import annotations
+﻿from __future__ import annotations
 from typing import List
-import re
-
-import pandas as pd
+import copy, re
 import streamlit as st
-from core.io_utils import projects_df_to_list
 
 from st_app.config.ui_defaults import (
-    PROJECT_COLUMNS, PROJECTS_HELP_TITLE, PROJECTS_HELP_DESC, PROJECTS_HELP_URL
+    PROJECTS_HELP_TITLE,
+    PROJECTS_HELP_DESC,
+    PROJECTS_HELP_URL,
 )
 
-COLUMNS = PROJECT_COLUMNS
 URL_SCHEME_RE = re.compile(r"^[a-z]+://", re.IGNORECASE)
 
 def _s(x) -> str:
@@ -21,58 +18,115 @@ def _norm_url(u: str) -> str:
     u = _s(u)
     if not u:
         return ""
-    # If user typed a domain without scheme, prefix https://
+    # prefix https:// إذا كان شبيهًا بنطاق بدون مخطط
     if not URL_SCHEME_RE.match(u) and "." in u.split("/")[0]:
         return f"https://{u}"
     return u
-
-def _ensure_df(existing: List[List[str]] | None) -> pd.DataFrame:
-    if existing and isinstance(existing, list):
-        return pd.DataFrame(existing, columns=COLUMNS)
-    return pd.DataFrame([{c: "" for c in COLUMNS}])
-
-def _drop_trailing_blank_rows(rows: List[List[str]]) -> List[List[str]]:
-    i = len(rows) - 1
-    while i >= 0 and all(_s(c) == "" for c in rows[i]):
-        i -= 1
-    rows = rows[: i + 1]
-    return rows or [["", "", ""]]
 
 def _normalize_items(items: List[List[str]]) -> List[List[str]]:
     out: List[List[str]] = []
     for row in items:
         t, d, u = (row + ["", "", ""])[:3]
-        t, d, u = _s(t), _s(d), _norm_url(_s(u))
+        t, d, u = _s(t), _s(d), _norm_url(u)
         if t or d or u:
             out.append([t, d, u])
-        else:
-            out.append(["", "", ""])  # keep for potential editing; pruned later
-    return _drop_trailing_blank_rows(out)
+    return out
+
 
 def render(profile: dict) -> dict:
     st.subheader("Projects")
+    st.caption("Add projects with a detailed multi-paragraph description and optional link.")
+
     rev = st.session_state.get("profile_rev", 0)
+    key_items = f"projects_items_{rev}"
 
-    df = _ensure_df(profile.get("projects"))
-    st.caption("List projects with a short description and (optionally) a link.")
+    current = copy.deepcopy(profile.get("projects") or [])
+    if key_items not in st.session_state:
+        st.session_state[key_items] = current if current else []
 
-    edited = st.data_editor(
-        df,
-        num_rows="dynamic",
-        key=f"projects_editor_{rev}",
-        width="stretch",
-        column_config={
-            "Title": st.column_config.TextColumn(width="large", help=PROJECTS_HELP_TITLE),
-            "Description": st.column_config.TextColumn(width="large", help=PROJECTS_HELP_DESC),
-            "URL": st.column_config.LinkColumn(help=PROJECTS_HELP_URL),
-        },
-    )
+    # زر إضافة مشروع
+    if st.button("➕ Add project", key=f"btn_add_proj_{rev}"):
+        st.session_state[key_items].append(["", "", ""])
+        st.rerun()
 
-    rows = projects_df_to_list(edited)  # tolerant to missing cols/NaNs
-    rows = _normalize_items(rows)
+    items = st.session_state[key_items]
 
-    if any(r[2] and not URL_SCHEME_RE.match(r[2]) for r in rows):
-        st.caption("⚠️ Some URLs were auto-prefixed with https:// — please double-check.")
+    if not items:
+        st.info("No projects yet. Click **Add project** to start.")
+    else:
+        with st.form(key=f"projects_form_{rev}", clear_on_submit=False):
+            remove_indexes = []
 
-    profile["projects"] = rows
+            for i, row in enumerate(items):
+                title, desc, url = (row + ["", "", ""])[:3]
+                with st.container(border=True):
+                    st.text_input(
+                        "Title",
+                        value=title,
+                        key=f"proj_title_{rev}_{i}",
+                        help=PROJECTS_HELP_TITLE,
+                        placeholder="e.g., CVEngine — Dynamic Resume Generator",
+                    )
+
+                    # ✅ وصف متعدد الفقرات
+                    st.text_area(
+                        "Description (multi-paragraph)",
+                        value=desc,
+                        key=f"proj_desc_{rev}_{i}",
+                        help=PROJECTS_HELP_DESC,
+                        placeholder=(
+                            "Describe your project in detail:\n"
+                            "- Purpose and scope\n"
+                            "- Key features or technologies\n"
+                            "- Achievements or results"
+                        ),
+                        height=180,
+                    )
+
+                    st.text_input(
+                        "URL (optional)",
+                        value=url,
+                        key=f"proj_url_{rev}_{i}",
+                        help=PROJECTS_HELP_URL,
+                        placeholder="e.g., https://github.com/TamerOnLine/CVEngine",
+                    )
+
+                    st.markdown("")
+                    if st.form_submit_button(
+                        "🗑️ Delete this project",
+                        type="secondary",
+                        use_container_width=True,
+                        key=f"rm_{rev}_{i}",
+                    ):
+                        remove_indexes.append(i)
+
+            # حذف المشاريع المحددة
+            if remove_indexes:
+                for idx in sorted(remove_indexes, reverse=True):
+                    items.pop(idx)
+
+            st.markdown("---")
+            submitted = st.form_submit_button("💾 Save projects")
+
+        if submitted:
+            rows = _normalize_items(
+                [
+                    [
+                        _s(st.session_state.get(f"proj_title_{rev}_{i}", "")),
+                        _s(st.session_state.get(f"proj_desc_{rev}_{i}", "")),
+                        _s(st.session_state.get(f"proj_url_{rev}_{i}", "")),
+                    ]
+                    for i in range(len(items))
+                ]
+            )
+            changed = rows != (profile.get("projects") or [])
+            profile["projects"] = rows
+            st.session_state[key_items] = copy.deepcopy(rows)
+
+            if changed:
+                st.session_state["profile_rev"] = rev + 1
+                st.success("Projects updated.")
+            else:
+                st.info("No changes detected.")
+
     return profile

@@ -1,36 +1,37 @@
 ﻿from __future__ import annotations
-
 import streamlit as st
-
 from core.io_utils import to_lines
-
 from st_app.config.ui_defaults import (
-    SKILLS_TEXTAREA_LABEL, SKILLS_TEXTAREA_HEIGHT
+    SKILLS_TEXTAREA_LABEL,
+    SKILLS_TEXTAREA_HEIGHT,
 )
-
 
 def render(profile: dict) -> dict:
     """
-    Render the skills editing interface in a Streamlit app.
-
-    Args:
-        profile (dict): A dictionary containing profile information.
-
-    Returns:
-        dict: Updated profile dictionary with modified skills.
+    Render the 'Skills' tab and return the updated profile dictionary.
+    Mimics tab_basic.py style — transparent defaults and placeholders only.
     """
     st.subheader("Skills")
     rev = st.session_state.get("profile_rev", 0)
 
-    key = f"skills_text_{rev}"
-    default = "\n".join(profile.get("skills") or [])
-    st.session_state.setdefault(key, default)
+    # Get current skills safely
+    skills = profile.get("skills") or []
 
-    skills_text = st.text_area(
-        SKILLS_TEXTAREA_LABEL,
-        key=key,
-        height=SKILLS_TEXTAREA_HEIGHT,
-    )
+    with st.form(key=f"skills_form_{rev}", clear_on_submit=False):
+        skills_text = st.text_area(
+            SKILLS_TEXTAREA_LABEL,
+            value="\n".join(skills),
+            key=f"skills_text_{rev}",
+            height=SKILLS_TEXTAREA_HEIGHT,
+            placeholder="e.g., Python, FastAPI, Docker, PostgreSQL...",
+            help="Enter one skill per line. Leave empty if not ready.",
+        )
 
-    profile["skills"] = to_lines(skills_text)
+        submitted = st.form_submit_button("Save skills")
+
+    if submitted:
+        new_skills = to_lines(skills_text)
+        profile["skills"] = new_skills
+        st.success("Skills updated." if new_skills != skills else "No changes detected.")
+
     return profile

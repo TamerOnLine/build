@@ -35,7 +35,7 @@ def render(profile: dict) -> dict:
                 "Full Name",
                 value=name_init,
                 key=f"name_{rev}",
-                placeholder=PH_FULL_NAME,
+                placeholder=f"e.g., {PH_FULL_NAME}",
                 help="Your full name as it should appear on the PDF.",
                 max_chars=MAX_NAME,
             )
@@ -44,7 +44,7 @@ def render(profile: dict) -> dict:
                 "Title",
                 value=title_init,
                 key=f"title_{rev}",
-                placeholder=PH_TITLE,
+                placeholder=f"e.g., {PH_TITLE}",
                 help="One-line professional title or tagline.",
                 max_chars=MAX_TITLE,
             )

@@ -59,7 +59,7 @@ def render(profile: dict) -> dict:
                 "Email",
                 value=email_init,
                 key=f"email_{rev}",
-                placeholder=PH_EMAIL,
+            placeholder=f"e.g., {PH_EMAIL}",
                 help="Used on the PDF and for contact buttons.",
                 max_chars=MAX_EMAIL,
             )
@@ -67,7 +67,7 @@ def render(profile: dict) -> dict:
                 "Website",
                 value=website_init,
                 key=f"website_{rev}",
-                placeholder=PH_WEBSITE,
+                placeholder=f"e.g., {PH_WEBSITE}",
                 help="Personal site or portfolio.",
                 max_chars=MAX_URL,
             )
@@ -76,7 +76,7 @@ def render(profile: dict) -> dict:
                 "Phone",
                 value=phone_init,
                 key=f"phone_{rev}",
-                placeholder=PH_PHONE,
+                placeholder=f"e.g., {PH_PHONE}",
                 help="Shown on the PDF (optional).",
                 max_chars=MAX_PHONE,
             )
@@ -84,7 +84,7 @@ def render(profile: dict) -> dict:
                 "GitHub",
                 value=gh_init,
                 key=f"github_{rev}",
-                placeholder=PH_GITHUB,
+                placeholder=f"e.g., {PH_GITHUB}",
                 help="Handle or full URL.",
                 max_chars=MAX_GH,
             )
@@ -92,7 +92,7 @@ def render(profile: dict) -> dict:
                 "LinkedIn",
                 value=li_init,
                 key=f"linkedin_{rev}",
-                placeholder=PH_LINKEDIN,
+                placeholder=f"e.g., {PH_LINKEDIN}",
                 help="Handle or full URL.",
                 max_chars=MAX_LI,
             )
@@ -101,7 +101,7 @@ def render(profile: dict) -> dict:
             "Location (optional)",
             value=location_init,
             key=f"location_{rev}",
-            placeholder=PH_LOCATION,
+            placeholder=f"e.g., {PH_LOCATION}",
             max_chars=MAX_LOC,
         )
 
