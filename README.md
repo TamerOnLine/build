@@ -1,126 +1,64 @@
-<div align="center">
+# 🧩 **TamerOnLine Resume Builder**
+### AI-Enhanced Resume System built with FastAPI, Streamlit, and ReportLab
 
-# 🧩 **Resume Builder**
-### FastAPI + Streamlit + ReportLab + PostgreSQL
-
-> 🧠 A modular and intelligent system to create, edit, and export professional resumes as PDF files.
-
-<p align="center">
-  <a href="https://www.python.org/" target="_blank">
-    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+">
-  </a>
-  <a href="https://fastapi.tiangolo.com/" target="_blank">
-    <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI">
-  </a>
-  <a href="https://streamlit.io/" target="_blank">
-    <img src="https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white" alt="Streamlit">
-  </a>
-  <a href="#" target="_blank">
-    <img src="https://img.shields.io/badge/Backend-28a745" alt="Backend">
-  </a>
-  <a href="#" target="_blank">
-    <img src="https://img.shields.io/badge/Frontend-DC3545" alt="Frontend">
-  </a>
-  <a href="https://www.reportlab.com/dev/docs/" target="_blank">
-    <img src="https://img.shields.io/badge/ReportLab-0A0A0A" alt="ReportLab">
-  </a>
-  <a href="#" target="_blank">
-    <img src="https://img.shields.io/badge/PDF%20Engine-FFC107" alt="PDF Engine">
-  </a>
-  <a href="https://opensource.org/licenses/MIT" target="_blank">
-    <img src="https://img.shields.io/badge/License-MIT-6c757d" alt="License: MIT">
-  </a>
-</p>
-
-
-</div>
+> 🧠 Build, customize, and export stunning resumes with intelligent PDF generation and modular design.
 
 ---
 
-## 🚀 **Overview**
-
-**Resume Builder** is a full-stack platform to design and export resumes (CVs) as dynamic PDFs.  
-It combines:
-
-- 🎨 **Streamlit UI** — interactive editor for profile data, sections, and themes  
-- ⚙️ **FastAPI Backend** — REST endpoints for PDF generation and data management  
-- 🧱 **ReportLab Engine** — pixel-perfect PDF builder with advanced layouts  
-- 💾 **PostgreSQL / SQLite** — persistent user profiles and customization settings  
+## 🚀 Overview
+**TamerOnLine Resume Builder** is a modern, AI-enhanced platform for creating professional resumes (CVs).  
+It combines **Streamlit**, **FastAPI**, and **ReportLab** into a unified system capable of:
+- 🎨 Interactive UI for live editing  
+- ⚙️ FastAPI backend for data processing and PDF generation  
+- 🧾 ReportLab engine for pixel-perfect printing  
+- 💾 PostgreSQL/SQLite for persistent user data  
+- 🧠 AI-driven formatting and multilingual support (English, Arabic, German)
 
 ---
 
-## 🧩 **System Architecture**
-
+## 🧩 System Architecture
 ```mermaid
-graph LR
-    subgraph Frontend
-        ST[🖥️ Streamlit UI]
-    end
-    subgraph Backend
-        API[⚙️ FastAPI Service]
-    end
-    subgraph Core
-        PDF[📦 ReportLab Builder]
-        DB[(🗄️ Database)]
-    end
+graph TD
+    ST[🖥️ Streamlit UI — Frontend Editor]
+    API[⚙️ FastAPI — REST Backend]
+    PDF[📦 ReportLab Engine — PDF Builder]
+    DB[(🗄️ Database — PostgreSQL / SQLite)]
     ST -->|POST JSON| API
     API --> PDF
     API --> DB
-    PDF -->|Return PDF| API
+    PDF -->|PDF bytes| API
     API -->|Response| ST
 ```
-
-> 💡 Streamlit communicates with **humans**, FastAPI communicates with **machines** — together they form a complete ecosystem.
-
----
-
-## 📁 **Folder Structure**
-
-```
-build/
-├── api/                # FastAPI backend
-│   ├── main.py         # API entry
-│   ├── routes/         # /profiles, /generate, etc.
-│   └── pdf_utils/      # ReportLab-based engine
-├── st_app/             # Streamlit frontend
-│   ├── app.py          # Main UI
-│   ├── core/           # API client & schema tools
-│   ├── ui/             # Sidebar & tabs
-│   └── widgets/        # Alerts, PDF preview
-├── layouts/            # Layout JSONs
-├── themes/             # Theme configurations
-├── profiles/           # Saved user profiles
-└── tools/              # Developer utilities
-```
+> 💡 Streamlit talks to humans, FastAPI talks to machines — together they form a complete ecosystem.
 
 ---
 
-## ⚙️ **Setup & Installation**
+## ⚙️ Setup & Installation
 
-### 🔹 1. Clone Repository
+### 1️⃣ Clone Repository
 ```bash
 git clone https://github.com/TamerOnLine/resume-builder.git
 cd resume-builder
 ```
 
-### 🔹 2. Create Virtual Environment
+### 2️⃣ Create Virtual Environment
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 ```
 
-### 🔹 3. Install Requirements
+### 3️⃣ Install Requirements
 ```bash
 pip install -r requirements/requirements.full.txt
 ```
 
-### 🔹 4. Run Backend (FastAPI)
+### 4️⃣ Run Backend (FastAPI)
 ```bash
 uvicorn api.main:app --reload --port 8000
 ```
 ➡️ Open Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-### 🔹 5. Run Frontend (Streamlit)
+### 5️⃣ Run Frontend (Streamlit)
 ```bash
 streamlit run st_app/app.py
 ```
@@ -128,42 +66,41 @@ streamlit run st_app/app.py
 
 ---
 
-## 🧠 **Core Features**
-
-| 🚀 Feature | Description |
-|-------------|-------------|
-| 🖥️ **Interactive UI** | Live editing with Streamlit |
-| ⚙️ **REST API** | `/generate-form-simple` to build PDFs |
-| 🧾 **ReportLab Engine** | Precise, professional PDF generation |
-| 🧩 **Modular Sections** | Header, Skills, Projects, Education, etc. |
-| 🎨 **Themes & Layouts** | Aqua Card, Modern Dark, Pro Clean, etc. |
-| 💾 **Database Integration** | PostgreSQL or SQLite |
-| 🧪 **Testing & CI/CD** | Pytest + GitHub Actions (E2E coverage) |
+## 🧠 Core Features
+| Feature | Description |
+|----------|--------------|
+| 🖥️ Interactive UI | Real-time editing with Streamlit |
+| ⚙️ REST API | `/api/generate-form-simple` to build PDFs |
+| 🧾 PDF Engine | ReportLab-based, multilingual PDF rendering |
+| 🧩 Modular Blocks | Header, Skills, Projects, Education, etc. |
+| 🎨 Themes & Layouts | Aqua-Card, Modern-Dark, Pro-Clean |
+| 💾 Database Support | PostgreSQL or SQLite |
+| 🧪 Testing & CI/CD | Pytest + GitHub Actions workflows |
+| 🌍 Multilingual | Arabic, English, German |
+| 🧠 AI Integration | Smart formatting and section suggestions |
 
 ---
 
-## 📡 **API Example**
-
+## 📡 Example API Request
 ```bash
-POST /generate-form-simple
+POST /api/generate-form-simple
 Content-Type: application/json
 
 {
   "theme_name": "aqua-card",
   "profile": {
-    "header": {"name": "Tamer OnLine", "title": "Software Developer"},
+    "header": {"name": "Tamer Hamad Faour", "title": "Software Developer"},
     "skills": ["FastAPI", "PostgreSQL", "ReportLab"],
     "languages": ["Arabic", "English", "German"]
   }
 }
 ```
 
-➡️ **Response:** PDF bytes (`application/pdf`)
+➡️ **Response:** `application/pdf`
 
 ---
 
-## 🧱 **Technology Stack**
-
+## 🧱 Technology Stack
 | Layer | Technology |
 |-------|-------------|
 | Frontend | Streamlit |
@@ -175,29 +112,23 @@ Content-Type: application/json
 
 ---
 
-## ☁️ **Deployment Options**
-
+## ☁️ Deployment Options
 | Type | Platform | Description |
 |------|-----------|-------------|
-| 💻 Local | Streamlit / FastAPI | Run both locally on 8501 & 8000 |
-| 🌐 Cloud (Simple) | Streamlit Cloud | Streamlit-only version |
-| ⚙️ Cloud (Full) | Render / Railway | FastAPI + Streamlit combo |
-| 🧭 Reverse Proxy | Nginx / Traefik | Unified domain (`/` → UI, `/api` → API) |
+| 💻 Local | FastAPI + Streamlit | Full local development |
+| 🌐 Cloud (UI Only) | Streamlit Cloud | Hosted Streamlit front-end |
+| ⚙️ Cloud (Full Stack) | Render / Railway | Backend + Frontend deployment |
+| 🧭 Reverse Proxy | Nginx / Traefik | Route `/` → UI, `/api` → FastAPI |
 
 ---
 
-## 🧾 **License**
-
+## 🧾 License
 MIT License © 2025 — [TamerOnLine](https://github.com/TamerOnLine)
 
 ---
 
-<div align="center">
-
 ### 👤 **Author — Tamer Hamad Faour**
 **Software Developer & AI Tool Builder**  
-Focused on FastAPI • Streamlit • PostgreSQL • ReportLab  
+Focused on **FastAPI • Streamlit • PostgreSQL • ReportLab**
 
-🌐 [GitHub](https://github.com/TamerOnLine) │ [LinkedIn](https://linkedin.com/in/tameronline)
-
-</div>
+🌐 [Website](https://tamer.dev) │ [GitHub](https://github.com/TamerOnLine) │ [LinkedIn](https://linkedin.com/in/tameronline)
