@@ -1,37 +1,35 @@
 ﻿from __future__ import annotations
 import streamlit as st
-from core.io_utils import to_lines
-from st_app.config.ui_defaults import (
-    SKILLS_TEXTAREA_LABEL,
-    SKILLS_TEXTAREA_HEIGHT,
-)
 
 def render(profile: dict) -> dict:
-    """
-    Render the 'Skills' tab and return the updated profile dictionary.
-    Mimics tab_basic.py style — transparent defaults and placeholders only.
-    """
-    st.subheader("Skills")
+    st.subheader("Key Skills")
+
     rev = st.session_state.get("profile_rev", 0)
 
-    # Get current skills safely
-    skills = profile.get("skills") or []
+    skills_list = profile.get("skills") or []
+    skills_text = "\n".join(skills_list)
 
-    with st.form(key=f"skills_form_{rev}", clear_on_submit=False):
-        skills_text = st.text_area(
-            SKILLS_TEXTAREA_LABEL,
-            value="\n".join(skills),
-            key=f"skills_text_{rev}",
-            height=SKILLS_TEXTAREA_HEIGHT,
-            placeholder="e.g., Python, FastAPI, Docker, PostgreSQL...",
-            help="Enter one skill per line. Leave empty if not ready.",
-        )
+    skills_text = st.text_area(
+        "List your main skills (one per line)",
+        value=skills_text,
+        height=140,
+        placeholder="e.g., FastAPI\nStreamlit\nPostgreSQL\nDocker\nGitHub Actions",
+        help="Each non-empty line will be saved as a separate skill.",
+        key=f"skills_text_{rev}",
+    )
 
-        submitted = st.form_submit_button("Save skills")
+    c1, c2, _ = st.columns([1, 1, 6])
+    with c1:
+        if st.button("💾 Save skills", key=f"skills_save_{rev}", width="stretch"):
+            new_skills = [ln.strip() for ln in skills_text.splitlines() if ln.strip()]
+            profile["skills"] = new_skills
+            st.success("Skills updated.")
+    with c2:
+        if st.button("🧹 Clear", key=f"skills_clear_{rev}", width="stretch"):
+            profile["skills"] = []
+            st.experimental_rerun()
 
-    if submitted:
-        new_skills = to_lines(skills_text)
-        profile["skills"] = new_skills
-        st.success("Skills updated." if new_skills != skills else "No changes detected.")
+    with st.expander("Preview (list)", expanded=False):
+        st.write(profile.get("skills") or [])
 
     return profile

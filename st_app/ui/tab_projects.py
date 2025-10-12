@@ -1,132 +1,93 @@
 ﻿from __future__ import annotations
-from typing import List
-import copy, re
 import streamlit as st
+from typing import List, Dict
 
-from st_app.config.ui_defaults import (
-    PROJECTS_HELP_TITLE,
-    PROJECTS_HELP_DESC,
-    PROJECTS_HELP_URL,
-)
+COLS = ["title", "desc", "url"]
+EMPTY: Dict[str, str] = {k: "" for k in COLS}
 
-URL_SCHEME_RE = re.compile(r"^[a-z]+://", re.IGNORECASE)
+STATE_KEY = "projects_items"
 
-def _s(x) -> str:
-    return "" if x is None else str(x).strip()
+def _coerce_in(value) -> List[Dict[str, str]]:
+    """Normalize incoming profile['projects'] to list[dict]."""
+    if not value:
+        return [EMPTY.copy()]
+    if isinstance(value, list) and value and isinstance(value[0], dict):
+        return [{k: (row.get(k) or "").strip() for k in COLS} for row in value]
+    if isinstance(value, list) and value and isinstance(value[0], (list, tuple)):
+        # legacy [[title, desc, url], ...]
+        out = []
+        for row in value:
+            t, d, u = (list(row) + ["", "", ""])[:3]
+            out.append({"title": str(t or "").strip(),
+                        "desc":  str(d or "").strip(),
+                        "url":   str(u or "").strip()})
+        return out
+    return [EMPTY.copy()]
 
-def _norm_url(u: str) -> str:
-    u = _s(u)
-    if not u:
-        return ""
-    # prefix https:// إذا كان شبيهًا بنطاق بدون مخطط
-    if not URL_SCHEME_RE.match(u) and "." in u.split("/")[0]:
-        return f"https://{u}"
-    return u
-
-def _normalize_items(items: List[List[str]]) -> List[List[str]]:
-    out: List[List[str]] = []
-    for row in items:
-        t, d, u = (row + ["", "", ""])[:3]
-        t, d, u = _s(t), _s(d), _norm_url(u)
-        if t or d or u:
-            out.append([t, d, u])
-    return out
-
+def _clean(rows: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    out = []
+    for r in rows:
+        item = {k: (r.get(k) or "").strip() for k in COLS}
+        if any(item.values()):
+            out.append(item)
+    return out or [EMPTY.copy()]
 
 def render(profile: dict) -> dict:
     st.subheader("Projects")
-    st.caption("Add projects with a detailed multi-paragraph description and optional link.")
 
     rev = st.session_state.get("profile_rev", 0)
-    key_items = f"projects_items_{rev}"
+    if STATE_KEY not in st.session_state:
+        st.session_state[STATE_KEY] = _coerce_in(profile.get("projects"))
 
-    current = copy.deepcopy(profile.get("projects") or [])
-    if key_items not in st.session_state:
-        st.session_state[key_items] = current if current else []
+    items: List[Dict[str, str]] = st.session_state[STATE_KEY]
 
-    # زر إضافة مشروع
-    if st.button("➕ Add project", key=f"btn_add_proj_{rev}"):
-        st.session_state[key_items].append(["", "", ""])
-        st.rerun()
+    top = st.columns([1, 1, 6])
+    with top[0]:
+        if st.button("➕ Add Project", key=f"proj_add_{rev}", width="stretch"):
+            items.append(EMPTY.copy())
+    with top[1]:
+        if st.button("🧹 Clear All", key=f"proj_clear_{rev}", width="stretch"):
+            items.clear()
+            items.append(EMPTY.copy())
 
-    items = st.session_state[key_items]
+    # Render each project as its own field block
+    for i, row in enumerate(list(items)):  # list() to avoid mutation issues during loop
+        with st.container(border=True):
+            st.markdown(f"**Project #{i+1}**")
+            c1, c2 = st.columns(2)
+            with c1:
+                title = st.text_input(
+                    "Title", value=row.get("title",""),
+                    key=f"proj_title_{rev}_{i}", placeholder="e.g., DeepClone", width="stretch"
+                )
+                url = st.text_input(
+                    "URL", value=row.get("url",""),
+                    key=f"proj_url_{rev}_{i}", placeholder="https://github.com/...", width="stretch"
+                )
+            with c2:
+                desc = st.text_area(
+                    "Description", value=row.get("desc",""),
+                    key=f"proj_desc_{rev}_{i}", height=90, placeholder="What it does / your role", width="stretch"
+                )
 
-    if not items:
-        st.info("No projects yet. Click **Add project** to start.")
-    else:
-        with st.form(key=f"projects_form_{rev}", clear_on_submit=False):
-            remove_indexes = []
+            # Update state
+            items[i] = {"title": title.strip(), "desc": desc.strip(), "url": url.strip()}
 
-            for i, row in enumerate(items):
-                title, desc, url = (row + ["", "", ""])[:3]
-                with st.container(border=True):
-                    st.text_input(
-                        "Title",
-                        value=title,
-                        key=f"proj_title_{rev}_{i}",
-                        help=PROJECTS_HELP_TITLE,
-                        placeholder="e.g., CVEngine — Dynamic Resume Generator",
-                    )
+            # Row controls
+            cc = st.columns([1,1,1,6])
+            with cc[0]:
+                if st.button("⬆️ Move up", key=f"proj_up_{rev}_{i}", width="stretch") and i > 0:
+                    items[i-1], items[i] = items[i], items[i-1]
+            with cc[1]:
+                if st.button("⬇️ Move down", key=f"proj_down_{rev}_{i}", width="stretch") and i < len(items)-1:
+                    items[i+1], items[i] = items[i], items[i+1]
+            with cc[2]:
+                if st.button("🗑️ Delete", key=f"proj_del_{rev}_{i}", width="stretch"):
+                    items.pop(i)
+                    st.experimental_rerun()  # re-render after deletion
 
-                    # ✅ وصف متعدد الفقرات
-                    st.text_area(
-                        "Description (multi-paragraph)",
-                        value=desc,
-                        key=f"proj_desc_{rev}_{i}",
-                        help=PROJECTS_HELP_DESC,
-                        placeholder=(
-                            "Describe your project in detail:\n"
-                            "- Purpose and scope\n"
-                            "- Key features or technologies\n"
-                            "- Achievements or results"
-                        ),
-                        height=180,
-                    )
-
-                    st.text_input(
-                        "URL (optional)",
-                        value=url,
-                        key=f"proj_url_{rev}_{i}",
-                        help=PROJECTS_HELP_URL,
-                        placeholder="e.g., https://github.com/TamerOnLine/CVEngine",
-                    )
-
-                    st.markdown("")
-                    if st.form_submit_button(
-                        "🗑️ Delete this project",
-                        type="secondary",
-                        use_container_width=True,
-                        key=f"rm_{rev}_{i}",
-                    ):
-                        remove_indexes.append(i)
-
-            # حذف المشاريع المحددة
-            if remove_indexes:
-                for idx in sorted(remove_indexes, reverse=True):
-                    items.pop(idx)
-
-            st.markdown("---")
-            submitted = st.form_submit_button("💾 Save projects")
-
-        if submitted:
-            rows = _normalize_items(
-                [
-                    [
-                        _s(st.session_state.get(f"proj_title_{rev}_{i}", "")),
-                        _s(st.session_state.get(f"proj_desc_{rev}_{i}", "")),
-                        _s(st.session_state.get(f"proj_url_{rev}_{i}", "")),
-                    ]
-                    for i in range(len(items))
-                ]
-            )
-            changed = rows != (profile.get("projects") or [])
-            profile["projects"] = rows
-            st.session_state[key_items] = copy.deepcopy(rows)
-
-            if changed:
-                st.session_state["profile_rev"] = rev + 1
-                st.success("Projects updated.")
-            else:
-                st.info("No changes detected.")
-
+    # Save back to profile (cleaned)
+    profile["projects"] = _clean(items)
+    with st.expander("Preview (JSON-like)", expanded=False):
+        st.write(profile["projects"])
     return profile

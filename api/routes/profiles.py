@@ -1,34 +1,25 @@
-﻿from __future__ import annotations
-
+﻿# api/routes/profiles.py
+from __future__ import annotations
 from pathlib import Path
 import os, json, re, base64, shutil
 from typing import Optional
-
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, EmailStr, Field, field_validator
+from api.models.profile import Profile
 
 # ============================
-# إعدادات المسارات (قابلة للبيئة)
+# إعداد المسارات (قابلة للتغيير)
 # ============================
 PROFILES_DIR = Path(
     os.getenv("PROFILES_DIR", str(Path.cwd() / "profiles"))
 ).resolve()
 PROFILES_DIR.mkdir(parents=True, exist_ok=True)
-
 PUBLIC_PROFILES_MOUNT = os.getenv("PUBLIC_PROFILES_MOUNT", "/profiles").rstrip("/")
 
-# بنية المجلد لكل بروفايل
-def _profile_dir(name: str) -> Path:
-    return PROFILES_DIR / name
-
-def _json_path(name: str) -> Path:
-    return _profile_dir(name) / "profile.json"
-
-def _png_path(name: str) -> Path:
-    return _profile_dir(name) / "avatar.png"
-
-def _public_avatar_url(name: str) -> str:
-    return f"{PUBLIC_PROFILES_MOUNT}/{name}/avatar.png"
+def _profile_dir(name: str) -> Path: return PROFILES_DIR / name
+def _json_path(name: str) -> Path: return _profile_dir(name) / "profile.json"
+def _png_path(name: str) -> Path: return _profile_dir(name) / "avatar.png"
+def _public_avatar_url(name: str) -> str: return f"{PUBLIC_PROFILES_MOUNT}/{name}/avatar.png"
 
 # ============================
 # التحقق من الاسم
@@ -42,51 +33,70 @@ def _validate_name(name: str) -> str:
     return name
 
 # ============================
-# النماذج
+# النماذج الكائنية
 # ============================
 class Header(BaseModel):
     name: str = Field("", max_length=120)
     title: str = Field("", max_length=160)
 
 class Contact(BaseModel):
-    email: EmailStr | None = None
-    phone: str | None = None
-    website: str | None = None
-    github: str | None = None
-    linkedin: str | None = None
-    location: str | None = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    github: Optional[str] = None
+    linkedin: Optional[str] = None
+    location: Optional[str] = None
 
-    @field_validator("email", mode="before")
-    @classmethod
-    def _empty_email_to_none(cls, v):
-        if isinstance(v, str) and v.strip() == "":
-            return None
-        return v
+class Project(BaseModel):
+    title: str = ""
+    desc: str = ""
+    url: Optional[str] = None
+
+class Education(BaseModel):
+    title: str = ""
+    school: str = ""
+    start: str = ""
+    end: str = ""
+    details: str = ""
+    url: Optional[str] = None
 
 class Profile(BaseModel):
-    header: Header | None = None
-    contact: Contact | None = None
-    skills: list[str] | None = None
-    languages: list[str] | None = None
-    projects: list[list[str]] | None = None
-    education: list[list[str]] | None = None
-    summary: list[str] | None = None
-
-    # مفاتيح الصورة القادمة من الواجهة
+    header: Header = Header()
+    contact: Contact = Contact()
+    skills: list[str] = []
+    languages: list[str] = []
+    summary: list[str] = []
+    projects: list[Project] = []
+    education: list[Education] = []
+    avatar_url: Optional[str] = None
     photo_b64: Optional[str] = None
     avatar_b64: Optional[str] = None
 
-    # سيكتب دائمًا في JSON
-    avatar_url: Optional[str] = None
-
-    @field_validator("summary", mode="before")
+    # ===== توافق خلفي مع الصيغة القديمة list[list[str]] =====
+    @field_validator("projects", mode="before")
     @classmethod
-    def _summary_to_list(cls, v):
-        if v is None:
-            return None
-        if isinstance(v, list):
-            return [str(x).strip() for x in v if str(x).strip()]
-        return [ln.strip() for ln in str(v).splitlines() if ln.strip()]
+    def _coerce_projects(cls, v):
+        if isinstance(v, list) and v and isinstance(v[0], list):
+            out = []
+            for row in v:
+                t, d, u = (row + ["", "", None])[:3]
+                out.append({"title": t or "", "desc": d or "", "url": u or None})
+            return out
+        return v
+
+    @field_validator("education", mode="before")
+    @classmethod
+    def _coerce_education(cls, v):
+        if isinstance(v, list) and v and isinstance(v[0], list):
+            out = []
+            for row in v:
+                t, s, a, e, d, u = (row + ["", "", "", "", "", None])[:6]
+                out.append({
+                    "title": t or "", "school": s or "", "start": a or "", "end": e or "",
+                    "details": d or "", "url": u or None
+                })
+            return out
+        return v
 
 class SaveProfileRequest(BaseModel):
     name: str
@@ -124,23 +134,18 @@ router = APIRouter(prefix="/profiles", tags=["profiles"])
 @router.post("/save")
 def save_profile(payload: SaveProfileRequest):
     """
-    يحفظ داخل مجلد خاص بالبروفايل:
+    يحفظ البروفايل داخل:
       profiles/<name>/profile.json
       profiles/<name>/avatar.png
-    ويكتب avatar_url دائمًا داخل الـ JSON.
     """
     name = _validate_name(payload.name)
-
-    # 1) جهّز البيانات
     data = payload.profile.model_dump(exclude_none=True)
 
-    # 2) التقط Base64 من الواجهة
+    # احفظ الصورة إن وُجدت
     photo_b64 = data.pop("photo_b64", None) or data.pop("avatar_b64", None)
-
-    # 3) احفظ الصورة (إن وُجدت)
     new_avatar_url = _save_png_from_b64(name, photo_b64)
 
-    # 4) avatar_url دائمًا
+    # ثبّت avatar_url
     jp = _json_path(name)
     existing_avatar_url = ""
     if jp.exists():
@@ -151,7 +156,7 @@ def save_profile(payload: SaveProfileRequest):
             existing_avatar_url = ""
     data["avatar_url"] = new_avatar_url or existing_avatar_url or _public_avatar_url(name)
 
-    # 5) اكتب JSON داخل نفس المجلد
+    # احفظ JSON النهائي
     jp.parent.mkdir(parents=True, exist_ok=True)
     jp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -171,9 +176,6 @@ def load_profile(name: str = Query(...)):
 
 @router.get("/list", response_model=list[str])
 def list_profiles() -> list[str]:
-    """
-    يعيد أسماء المجلدات التي تحتوي profile.json
-    """
     if not PROFILES_DIR.exists():
         return []
     names: list[str] = []
@@ -184,9 +186,6 @@ def list_profiles() -> list[str]:
 
 @router.delete("/delete")
 def delete_profile(name: str = Query(...)):
-    """
-    يحذف مجلد البروفايل بالكامل: JSON + PNG
-    """
     name = _validate_name(name)
     d = _profile_dir(name)
     if not d.exists():

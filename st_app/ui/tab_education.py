@@ -1,145 +1,117 @@
 ﻿from __future__ import annotations
-from typing import List, Any
-import copy, re
 import streamlit as st
-from st_app.config.ui_defaults import (
-    EDU_COLUMNS,
-    EDU_HELP_TITLE,
-    EDU_HELP_SCHOOL,
-    EDU_HELP_START,
-    EDU_HELP_END,
-    EDU_HELP_DETAILS,
-    EDU_HELP_URL,
-    DATE_HINT,
-    EDU_URL_HELP,
-)
+from typing import List, Dict
 
-URL_RE = re.compile(r"^[a-z]+://", re.IGNORECASE)
+COLS = ["title", "school", "start", "end", "details", "url"]
+EMPTY: Dict[str, str] = {k: "" for k in COLS}
 
-def _s(x: Any) -> str:
-    return "" if x is None else str(x).strip()
+STATE_KEY = "education_items"
 
-def _norm_url(u: str) -> str:
-    u = _s(u)
-    if not u:
-        return ""
-    if not URL_RE.match(u) and "." in u.split("/")[0]:
-        return f"https://{u}"
-    return u
+def _coerce_in(value) -> List[Dict[str, str]]:
+    """Normalize incoming profile['education'] to list[dict]."""
+    if not value:
+        return [EMPTY.copy()]
+    if isinstance(value, list) and value and isinstance(value[0], dict):
+        return [{k: (row.get(k) or "").strip() for k in COLS} for row in value]
+    if isinstance(value, list) and value and isinstance(value[0], (list, tuple)):
+        # legacy [[title, school, start, end, details, url], ...]
+        out = []
+        for row in value:
+            t, s, a, e, d, u = (list(row) + ["", "", "", "", "", ""])[:6]
+            out.append({
+                "title":   str(t or "").strip(),
+                "school":  str(s or "").strip(),
+                "start":   str(a or "").strip(),
+                "end":     str(e or "").strip(),
+                "details": str(d or "").strip(),
+                "url":     str(u or "").strip(),
+            })
+        return out
+    return [EMPTY.copy()]
 
-def _normalize_items(items: List[List[str]]) -> List[List[str]]:
-    out: List[List[str]] = []
-    for row in items:
-        t, s_, start, end, details, url = (row + ["", "", "", "", "", ""])[:6]
-        t, s_, start, end, details, url = _s(t), _s(s_), _s(start), _s(end), _s(details), _norm_url(url)
-        if any([t, s_, start, end, details, url]):
-            out.append([t, s_, start, end, details, url])
-    return out
+def _clean(rows: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    out = []
+    for r in rows:
+        item = {k: (r.get(k) or "").strip() for k in COLS}
+        if any(item.values()):
+            out.append(item)
+    return out or [EMPTY.copy()]
 
 def render(profile: dict) -> dict:
     st.subheader("Education / Training")
-    st.caption("Add entries one by one. Use multi-paragraph details if needed.")
 
     rev = st.session_state.get("profile_rev", 0)
-    key_items = f"edu_items_{rev}"
-    current = copy.deepcopy(profile.get("education") or [])
+    if STATE_KEY not in st.session_state:
+        st.session_state[STATE_KEY] = _coerce_in(profile.get("education"))
 
-    if key_items not in st.session_state:
-        st.session_state[key_items] = current if current else []
+    items: List[Dict[str, str]] = st.session_state[STATE_KEY]
 
-    if st.button("➕ Add entry", key=f"btn_add_edu_{rev}"):
-        st.session_state[key_items].append(["", "", "", "", "", ""])
-        st.rerun()
+    top = st.columns([1, 1, 6])
+    with top[0]:
+        if st.button("➕ Add Education", key=f"edu_add_{rev}", width="stretch"):
+            items.append(EMPTY.copy())
+    with top[1]:
+        if st.button("🧹 Clear All", key=f"edu_clear_{rev}", width="stretch"):
+            items.clear()
+            items.append(EMPTY.copy())
 
-    items = st.session_state[key_items]
+    # Render each education item as its own field block
+    for i, row in enumerate(list(items)):
+        with st.container(border=True):
+            st.markdown(f"**Entry #{i+1}**")
+            c1, c2 = st.columns(2)
+            with c1:
+                title = st.text_input(
+                    "Degree / Program", value=row.get("title",""),
+                    key=f"edu_title_{rev}_{i}", placeholder="e.g., B.Sc. Computer Science", width="stretch"
+                )
+                start = st.text_input(
+                    "Start", value=row.get("start",""),
+                    key=f"edu_start_{rev}_{i}", placeholder="YYYY or YYYY-MM", width="stretch"
+                )
+                details = st.text_area(
+                    "Details", value=row.get("details",""),
+                    key=f"edu_details_{rev}_{i}", height=90, placeholder="Notes, grade, focus", width="stretch"
+                )
+            with c2:
+                school = st.text_input(
+                    "School / Institution", value=row.get("school",""),
+                    key=f"edu_school_{rev}_{i}", placeholder="e.g., Arden University Berlin", width="stretch"
+                )
+                end = st.text_input(
+                    "End", value=row.get("end",""),
+                    key=f"edu_end_{rev}_{i}", placeholder="YYYY or YYYY-MM", width="stretch"
+                )
+                url = st.text_input(
+                    "URL", value=row.get("url",""),
+                    key=f"edu_url_{rev}_{i}", placeholder="Program/institution link", width="stretch"
+                )
 
-    if not items:
-        st.info("No education entries yet. Click **Add entry** to start.")
-    else:
-        with st.form(key=f"education_form_{rev}", clear_on_submit=False):
-            remove = []
-            for i, row in enumerate(items):
-                title, school, start, end, details, url = (row + ["", "", "", "", "", ""])[:6]
-                with st.container(border=True):
-                    st.text_input(
-                        "Title / Program",
-                        value=title,
-                        key=f"edu_title_{rev}_{i}",
-                        placeholder=f"e.g., {EDU_HELP_TITLE}",
-                        help="Degree, program, or course name.",
-                    )
-                    st.text_input(
-                        "School",
-                        value=school,
-                        key=f"edu_school_{rev}_{i}",
-                        placeholder=f"e.g., {EDU_HELP_SCHOOL}",
-                        help="Institution or academy.",
-                    )
-                    st.text_input(
-                        "Start",
-                        value=start,
-                        key=f"edu_start_{rev}_{i}",
-                        placeholder=f"e.g., {EDU_HELP_START}",
-                        help=DATE_HINT,
-                    )
-                    st.text_input(
-                        "End",
-                        value=end,
-                        key=f"edu_end_{rev}_{i}",
-                        placeholder=f"e.g., {EDU_HELP_END}",
-                        help=f"{DATE_HINT} or 'Present'",
-                    )
-                    st.text_area(
-                        "Details (multi-paragraph)",
-                        value=details,
-                        key=f"edu_details_{rev}_{i}",
-                        placeholder=f"e.g., {EDU_HELP_DETAILS}",
-                        help="Write multiple lines/paragraphs if needed.",
-                        height=150,
-                    )
-                    st.text_input(
-                        "URL (optional)",
-                        value=url,
-                        key=f"edu_url_{rev}_{i}",
-                        placeholder=f"e.g., {EDU_HELP_URL}",
-                        help=EDU_URL_HELP,
-                    )
-                    if st.form_submit_button(
-                        "🗑️ Delete this entry",
-                        type="secondary",
-                        use_container_width=True,
-                        key=f"rm_edu_{rev}_{i}",
-                    ):
-                        remove.append(i)
+            # Update state
+            items[i] = {
+                "title": title.strip(),
+                "school": school.strip(),
+                "start": start.strip(),
+                "end": end.strip(),
+                "details": details.strip(),
+                "url": url.strip(),
+            }
 
-            if remove:
-                for idx in sorted(remove, reverse=True):
-                    items.pop(idx)
+            # Row controls
+            cc = st.columns([1,1,1,6])
+            with cc[0]:
+                if st.button("⬆️ Move up", key=f"edu_up_{rev}_{i}", width="stretch") and i > 0:
+                    items[i-1], items[i] = items[i], items[i-1]
+            with cc[1]:
+                if st.button("⬇️ Move down", key=f"edu_down_{rev}_{i}", width="stretch") and i < len(items)-1:
+                    items[i+1], items[i] = items[i], items[i+1]
+            with cc[2]:
+                if st.button("🗑️ Delete", key=f"edu_del_{rev}_{i}", width="stretch"):
+                    items.pop(i)
+                    st.experimental_rerun()
 
-            st.markdown("---")
-            submitted = st.form_submit_button("💾 Save education")
-
-        if submitted:
-            rows = _normalize_items(
-                [
-                    [
-                        _s(st.session_state.get(f"edu_title_{rev}_{i}", "")),
-                        _s(st.session_state.get(f"edu_school_{rev}_{i}", "")),
-                        _s(st.session_state.get(f"edu_start_{rev}_{i}", "")),
-                        _s(st.session_state.get(f"edu_end_{rev}_{i}", "")),
-                        _s(st.session_state.get(f"edu_details_{rev}_{i}", "")),
-                        _s(st.session_state.get(f"edu_url_{rev}_{i}", "")),
-                    ]
-                    for i in range(len(items))
-                ]
-            )
-            changed = rows != (profile.get("education") or [])
-            profile["education"] = rows
-            st.session_state[key_items] = copy.deepcopy(rows)
-
-            if changed:
-                st.session_state["profile_rev"] = rev + 1
-                st.success("Education updated.")
-            else:
-                st.info("No changes detected.")
+    # Save back to profile (cleaned)
+    profile["education"] = _clean(items)
+    with st.expander("Preview (JSON-like)", expanded=False):
+        st.write(profile["education"])
     return profile

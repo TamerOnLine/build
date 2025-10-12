@@ -1,178 +1,189 @@
-﻿from __future__ import annotations
-
-import os, sys
-
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
-
+﻿# st_app/app.py
+from __future__ import annotations
+import sys, os, json
 import streamlit as st
-import json
-import base64
-import requests
-
-
-
-
-
-st.set_page_config(page_title="Resume Builder", page_icon="", layout="wide")
-st.title("Resume Builder Streamlit")
-
-
-
-
-
-
 
 # ============================================================
+# ✅ السماح بالعمل سواء شغّلت من الجذر أو من داخل st_app/
+# ============================================================
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(APP_DIR)
+if PARENT_DIR not in sys.path:
+    sys.path.insert(0, PARENT_DIR)
 
+# ============================================================
+# Tabs (واجهات الحقول) + API helpers
 # ============================================================
 try:
+    # عند التشغيل من الجذر (e.g., D:\build)
+    from st_app.ui.tab_summary import render as tab_summary
+    from st_app.ui.tab_skills import render as tab_skills
+    from st_app.ui.tab_contact import render as tab_contact
+    from st_app.ui.tab_projects import render as tab_projects
+    from st_app.ui.tab_education import render as tab_education
+    from st_app.ui.tab_headshot import render as tab_headshot
+
     from st_app.core.api_client import (
-        api_generate_pdf,
+        build_payload,              # لطلب توليد PDF
+        api_generate_pdf,           # استدعاء واجهة التوليد
+        save_profile,               # حفظ البروفايل
+        build_profile_payload,      # تنظيف/تطبيع الحمولة قبل الحفظ
+        normalize_theme_name,       # تطبيع اسم الثيم
+        choose_layout_inline,       # اختيار/تحميل تخطيط JSON (اختياري)
+        inject_headshot_into_layout # حقن صورة في التخطيط (اختياري)
+    )
+except ModuleNotFoundError:
+    # عند التشغيل من داخل st_app/ مباشرة
+    from ui.tab_summary import render as tab_summary
+    from ui.tab_skills import render as tab_skills
+    from ui.tab_contact import render as tab_contact
+    from ui.tab_projects import render as tab_projects
+    from ui.tab_education import render as tab_education
+    from ui.tab_headshot import render as tab_headshot
+
+    from core.api_client import (
         build_payload,
+        api_generate_pdf,
+        save_profile,
+        build_profile_payload,
         normalize_theme_name,
         choose_layout_inline,
-        inject_headshot_into_layout,  
+        inject_headshot_into_layout
     )
-    from st_app.core.schema import ensure_profile_schema
-    from st_app.ui.sidebar import render_sidebar
-    from st_app.ui.tab_basic import render as render_basic
-    from st_app.ui.tab_contact import render as render_contact
-    from st_app.ui.tab_skills import render as render_skills
-    from st_app.ui.tab_languages import render as render_languages
-    from st_app.ui.tab_projects import render as render_projects
-    from st_app.ui.tab_education import render as render_education
-    from st_app.ui.tab_summary import render as render_summary
-
-    try:
-        from st_app.ui.tab_headshot import render as render_headshot
-        HAS_HEADSHOT = True
-    except Exception:
-        HAS_HEADSHOT = False
-
-except Exception as e:
-    st.error("Import error in app.py")
-    st.exception(e)
-    st.stop()
 
 # ============================================================
+# إعداد الصفحة
+# ============================================================
+st.set_page_config(page_title="Resume Builder Streamlit", layout="wide")
+st.title("Resume Builder Streamlit")
 
 # ============================================================
-settings = render_sidebar()
-
-# ============================================================
-
+# الحالة العامة
 # ============================================================
 if "profile" not in st.session_state:
-    st.session_state.profile = ensure_profile_schema({})
+    st.session_state.profile = {
+        "header":   {"name": "", "title": ""},
+        "contact":  {},
+        "summary":  [],
+        "skills":   [],
+        "languages": [],
+        "projects": [],
+        "education": [],
+        "avatar":   None,
+    }
+
+if "profile_rev" not in st.session_state:
+    st.session_state.profile_rev = 0
 
 # ============================================================
-
+# الشريط الجانبي
 # ============================================================
-tab_defs = [
-    ("Basic Info", render_basic),
-    ("Contact", render_contact),
-    ("Skills", render_skills),
-    ("Languages", render_languages),
-    ("Projects", render_projects),
-    ("Education", render_education),
-    ("Summary", render_summary),
-]
-if HAS_HEADSHOT:
-    tab_defs.append(("Headshot", render_headshot))
+with st.sidebar:
+    st.header("Profile Settings")
 
-tabs = st.tabs([t for t, _ in tab_defs])
+    profile_name = st.text_input("Profile name (folder)", value="tamer", help="Used as profiles/<name>/")
+    theme_input = st.text_input("Theme name", value="aqua-card")
+    theme_name = normalize_theme_name(theme_input)
 
-for (title, render_fn), tab in zip(tab_defs, tabs):
-    with tab:
-        st.session_state.profile = render_fn(st.session_state.profile)
+    # رفع صورة (اختياري) لاستخدامها في التوليد/التخطيط
+    photo_file = st.file_uploader("Headshot (PNG/JPG)", type=["png", "jpg", "jpeg"], key="sidebar_photo")
+    photo_bytes: bytes | None = photo_file.read() if photo_file else None
+    if photo_bytes:
+        st.image(photo_bytes, caption="Preview", use_column_width=True)
 
-# ============================================================
+    st.divider()
 
-# ============================================================
-st.markdown("---")
-col_gen, col_dbg = st.columns([2, 1])
-
-with col_gen:
-    st.subheader("Generate PDF")
-    if st.button("Generate", type="primary", key="btn_generate"):
+    # توليد PDF
+    if st.button("🧾 Generate PDF", key="gen_pdf_btn"):
         try:
-            layout_inline = choose_layout_inline(settings.get("layout_file"))
+            profile = st.session_state.profile.copy()
 
-            try:
-                layout_inline = inject_headshot_into_layout(
-                    layout_inline, st.session_state.get("photo_bytes")
-                )
-            except Exception:
-                pass
+            # (اختياري) التخطيط
+            layout = choose_layout_inline("")  # ضع مسار JSON لو عندك قوالب
+            layout = inject_headshot_into_layout(layout, photo_bytes)
 
-            payload = build_payload(
-                theme_name=normalize_theme_name(
-                    settings.get("theme_name") or "default.theme.json"
-                ),
-                ui_lang=settings.get("ui_lang") or "en",
-                rtl_mode=bool(settings.get("rtl_mode")),
-                profile=ensure_profile_schema(st.session_state.profile),
-                layout_inline=layout_inline,
-            )
+            payload = {
+                "theme_name": theme_name,
+                "ui_lang": "en",
+                "rtl_mode": False,
+                "layout": layout,     # {}
+                "profile": profile,
+            }
 
-            st.write(
-                "[CLIENT] theme:",
-                payload["theme_name"],
-                "| layout:",
-                settings.get("layout_file"),
-            )
-
-            pdf_bytes = api_generate_pdf(
-                settings.get("base_url") or "http://127.0.0.1:8000", payload
-            )
-
-            b64 = base64.b64encode(pdf_bytes).decode("ascii")
+            pdf_bytes = api_generate_pdf(payload)
             st.download_button(
                 "Download PDF",
-                pdf_bytes,
-                "resume.pdf",
-                "application/pdf",
-                key="btn_download_pdf",
+                data=pdf_bytes,
+                file_name=f"{profile_name}.pdf",
+                mime="application/pdf",
+                width="stretch"   # بدل use_container_width=True
             )
-            with st.expander("Preview (experimental)"):
-                st.markdown(
-                    f'<iframe src="data:application/pdf;base64,{b64}" '
-                    'style="width:100%;height:80vh;border:none;"></iframe>',
-                    unsafe_allow_html=True,
-                )
-            st.success("✅ PDF generated successfully.")
-
         except Exception as e:
-            st.error("Generation failed:")
-            st.exception(e)
+            st.error(f"PDF generation error: {e}")
 
 # ============================================================
+# قسم الاسم والمسمى الوظيفي
+# ============================================================
+with st.expander("Header (Name & Title)", expanded=True):
+    c1, c2 = st.columns(2)
+    with c1:
+        st.session_state.profile.setdefault("header", {})
+        st.session_state.profile["header"]["name"] = st.text_input(
+            "Full name",
+            value=st.session_state.profile["header"].get("name", ""),
+            placeholder="e.g., Tamer Hamad Faour",
+            key="header_name",
+            width="stretch"
+        )
+    with c2:
+        st.session_state.profile["header"]["title"] = st.text_input(
+            "Professional title",
+            value=st.session_state.profile["header"].get("title", ""),
+            placeholder="e.g., Software Developer",
+            key="header_title",
+            width="stretch"
+        )
 
 # ============================================================
-with col_dbg:
-    st.subheader("Debug")
+# التبويبات
+# ============================================================
+tabs = st.tabs(["Summary", "Skills", "Contact", "Projects", "Education", "Headshot"])
+
+with tabs[0]:
+    st.session_state.profile = tab_summary(st.session_state.profile)
+
+with tabs[1]:
+    st.session_state.profile = tab_skills(st.session_state.profile)
+
+with tabs[2]:
+    st.session_state.profile = tab_contact(st.session_state.profile)
+
+with tabs[3]:
+    st.session_state.profile = tab_projects(st.session_state.profile)
+
+with tabs[4]:
+    st.session_state.profile = tab_education(st.session_state.profile)
+
+with tabs[5]:
+    st.session_state.profile = tab_headshot(st.session_state.profile)
+
+# زيادة رقم المراجعة لتوليد مفاتيح فريدة داخل التبويبات
+st.session_state.profile_rev += 1
+
+# ============================================================
+# Save Profile (بعد التبويبات لضمان تحديث الحالة قبل الإرسال)
+# ============================================================
+st.divider()
+if st.button("💾 Save Profile", key="save_profile_main", type="primary"):
     try:
-        if st.checkbox("Show outgoing payload", key="chk_dbg_payload"):
-            li = choose_layout_inline(settings.get("layout_file"))
-            st.code(
-                json.dumps(
-                    build_payload(
-                        theme_name=normalize_theme_name(
-                            settings.get("theme_name") or "default.theme.json"
-                        ),
-                        ui_lang=settings.get("ui_lang") or "en",
-                        rtl_mode=bool(settings.get("rtl_mode")),
-                        profile=ensure_profile_schema(st.session_state.profile),
-                        layout_inline=li,
-                    ),
-                    ensure_ascii=False,
-                    indent=2,
-                ),
-                language="json",
-            )
+        payload = build_profile_payload(st.session_state.profile)
+        result = save_profile(profile_name, payload)
+        st.success(f"Saved ✓ (name: {result.get('name','')})")
     except Exception as e:
-        st.warning("Debug payload error:")
-        st.exception(e)
+        st.error(f"Save failed: {e}")
 
+# ============================================================
+# Debug (اختياري)
+# ============================================================
+with st.expander("Debug: current profile payload", expanded=False):
+    st.code(json.dumps(st.session_state.profile, indent=2, ensure_ascii=False), language="json")

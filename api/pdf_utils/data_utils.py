@@ -129,3 +129,37 @@ def build_ready_from_profile(profile: dict) -> Dict[str, Any]:
 
     return data
 
+
+
+# ─────────────────────────────────────────────────────────────
+# Adapter for new structured data → legacy text-based blocks
+# ─────────────────────────────────────────────────────────────
+def _blocks_adapter(profile: dict) -> dict:
+    """
+    Convert structured project/education objects (dicts)
+    into text strings for compatibility with old block renderers.
+    """
+    data = profile.copy()
+
+    # Projects: dict → strings
+    if data.get("projects") and isinstance(data["projects"][0], dict):
+        data["projects"] = [
+            f'{p.get("title","")} — {p.get("desc","")}\n{p.get("url","")}'.strip()
+            for p in data["projects"]
+        ]
+
+    # Education: dict → paragraphs
+    if data.get("education") and isinstance(data["education"][0], dict):
+        out = []
+        for e in data["education"]:
+            lines = [
+                e.get("title", ""),
+                e.get("school", ""),
+                f'{e.get("start","")} — {e.get("end","")}'.strip(),
+                e.get("details", ""),
+                e.get("url", "")
+            ]
+            out.append("\n".join([ln for ln in lines if ln]))
+        data["education"] = out
+
+    return data

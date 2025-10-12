@@ -24,6 +24,7 @@ from .engine import LayoutEngine, PageSpec
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, LETTER
 from reportlab.lib.units import mm
+from api.pdf_utils.data_utils import _blocks_adapter
 
 
 # Default page size and margins
@@ -92,6 +93,7 @@ def build_resume_pdf(
         ui = data.get("ui_lang") or UI_LANG
         rtl = bool(data.get("rtl_mode"))
         profile = data.get("profile") or {}
+        profile = _blocks_adapter(profile)
         tn = theme_name or data.get("theme_name") or "default"
         theme_dict = load_and_apply(tn)
 
