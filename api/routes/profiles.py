@@ -139,13 +139,21 @@ def save_profile(payload: SaveProfileRequest):
       profiles/<name>/avatar.png
     """
     name = _validate_name(payload.name)
-    data = payload.profile.model_dump(exclude_none=True)
 
-    # احفظ الصورة إن وُجدت
+    # 1) اجلب كل الحقول بدون استبعاد None
+    data = payload.profile.model_dump(exclude_none=False)
+
+    # 2) contact: ضَمَن المفاتيح دائماً
+    contact = data.get("contact") or {}
+    for k in ("email", "phone", "website", "github", "linkedin", "location"):
+        contact.setdefault(k, None)
+    data["contact"] = contact
+
+    # 3) احفظ الصورة إن وُجدت (كما هو)
     photo_b64 = data.pop("photo_b64", None) or data.pop("avatar_b64", None)
     new_avatar_url = _save_png_from_b64(name, photo_b64)
 
-    # ثبّت avatar_url
+    # 4) ثبّت avatar_url (كما هو)
     jp = _json_path(name)
     existing_avatar_url = ""
     if jp.exists():
@@ -156,11 +164,12 @@ def save_profile(payload: SaveProfileRequest):
             existing_avatar_url = ""
     data["avatar_url"] = new_avatar_url or existing_avatar_url or _public_avatar_url(name)
 
-    # احفظ JSON النهائي
+    # 5) احفظ JSON النهائي (سيحتوي contact بالمفاتيح كلها)
     jp.parent.mkdir(parents=True, exist_ok=True)
     jp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
     return {"ok": True, "name": name, "avatar_url": data["avatar_url"]}
+
 
 @router.get("/get")
 def get_profile(name: str = Query(...)):

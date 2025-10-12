@@ -1,7 +1,6 @@
-﻿# streamlit/ui/tab_contact.py
+﻿# st_app/ui/tab_contact.py
 from __future__ import annotations
 from typing import Any
-import copy
 import re
 import streamlit as st
 
@@ -12,169 +11,60 @@ from st_app.config.ui_defaults import (
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
-
 def _s(x: Any) -> str:
     """Normalize None -> '' and strip strings for safe UI usage."""
     return "" if x is None else str(x).strip()
 
-
 def _normalize_url(u: str) -> str:
+    u = (u or "").strip()
     if not u:
         return ""
-    u = u.strip()
-    if u.startswith(("http://", "https://")):
-        return u
-    # Treat naked handles/hosts as full URLs
-    return f"https://{u}"
-
+    return u if u.startswith(("http://", "https://")) else f"https://{u}"
 
 def _normalize_phone(p: str) -> str:
     """Keep digits, +, spaces, hyphens, parentheses; collapse spaces."""
     p = re.sub(r"[^\d+\-\s()]", "", p or "")
     return re.sub(r"\s+", " ", p).strip()
 
-
-def _maybe_warn_email(email: str) -> None:
-    if email and not EMAIL_RE.match(email):
-        st.caption("⚠️ That email doesn’t look valid.")
-
-
-def _maybe_warn_url(label: str, url: str) -> None:
-    if url and "." not in url:
-        st.caption(f"⚠️ {label} looks unusual.")
-
-
 def render(profile: dict) -> dict:
     st.subheader("Contact Info")
-    rev = st.session_state.get("profile_rev", 0)
 
     contact = dict(profile.get("contact") or {})
-    email_init = _s(contact.get("email"))
-    phone_init = _s(contact.get("phone"))
-    website_init = _s(contact.get("website"))
-    gh_init = _s(contact.get("github"))
-    li_init = _s(contact.get("linkedin"))
-    location_init = _s(contact.get("location"))
 
-    changed = False
-    with st.form(key=f"contact_form_{rev}", clear_on_submit=False):
-        c1, c2 = st.columns(2)
-        with c1:
-            email = st.text_input(
-                "Email",
-                value=email_init,
-                key=f"email_{rev}",
-                placeholder=f"e.g., {PH_EMAIL}",
-                help="Used on the PDF and for contact buttons.",
-                max_chars=MAX_EMAIL,
-            )
-            website = st.text_input(
-                "Website",
-                value=website_init,
-                key=f"website_{rev}",
-                placeholder=f"e.g., {PH_WEBSITE}",
-                help="Personal site or portfolio.",
-                max_chars=MAX_URL,
-            )
-        with c2:
-            phone = st.text_input(
-                "Phone",
-                value=phone_init,
-                key=f"phone_{rev}",
-                placeholder=f"e.g., {PH_PHONE}",
-                help="Shown on the PDF (optional).",
-                max_chars=MAX_PHONE,
-            )
-            github = st.text_input(
-                "GitHub",
-                value=gh_init,
-                key=f"github_{rev}",
-                placeholder=f"e.g., {PH_GITHUB}",
-                help="Handle or full URL.",
-                max_chars=MAX_GH,
-            )
-            linkedin = st.text_input(
-                "LinkedIn",
-                value=li_init,
-                key=f"linkedin_{rev}",
-                placeholder=f"e.g., {PH_LINKEDIN}",
-                help="Handle or full URL.",
-                max_chars=MAX_LI,
-            )
+    email    = st.text_input("Email",    value=_s(contact.get("email")),    placeholder=PH_EMAIL,    max_chars=MAX_EMAIL, key="contact_email")
+    phone    = st.text_input("Phone",    value=_s(contact.get("phone")),    placeholder=PH_PHONE,    max_chars=MAX_PHONE, key="contact_phone")
+    website  = st.text_input("Website",  value=_s(contact.get("website")),  placeholder=PH_WEBSITE,  max_chars=MAX_URL,   key="contact_website")
+    github   = st.text_input("GitHub",   value=_s(contact.get("github")),   placeholder=PH_GITHUB,   max_chars=MAX_GH,    key="contact_github")
+    linkedin = st.text_input("LinkedIn", value=_s(contact.get("linkedin")), placeholder=PH_LINKEDIN, max_chars=MAX_LI,    key="contact_linkedin")
+    location = st.text_input("Location (optional)", value=_s(contact.get("location")), placeholder=PH_LOCATION, max_chars=MAX_LOC, key="contact_location")
 
-        location = st.text_input(
-            "Location (optional)",
-            value=location_init,
-            key=f"location_{rev}",
-            placeholder=f"e.g., {PH_LOCATION}",
-            max_chars=MAX_LOC,
-        )
+    # تطبيع سريع
+    gh = github.strip()
+    if gh and "://" not in gh and "/" not in gh.strip("/"):
+        gh = f"https://github.com/{gh}"
+    gh = _normalize_url(gh) if gh else ""
 
-        submitted = st.form_submit_button("Save contact info")
+    li = linkedin.strip()
+    if li and "://" not in li and "/" not in li.strip("/"):
+        li = f"https://www.linkedin.com/in/{li}"
+    li = _normalize_url(li) if li else ""
 
-    if submitted:
-        # pull current values, normalize
-        email = _s(st.session_state.get(f"email_{rev}", email_init))
-        phone = _normalize_phone(_s(st.session_state.get(f"phone_{rev}", phone_init)))
-        website = _s(st.session_state.get(f"website_{rev}", website_init))
-        github = _s(st.session_state.get(f"github_{rev}", gh_init))
-        linkedin = _s(st.session_state.get(f"linkedin_{rev}", li_init))
-        location = _s(st.session_state.get(f"location_{rev}", location_init))
+    wb = _normalize_url(website) if website.strip() else ""
+    ph = _normalize_phone(phone)
 
-        # coerce handles to URLs where useful
-        if github and "://" not in github and "/" not in github.strip("/"):
-            github = f"https://github.com/{github}"
-        github = _normalize_url(github) if github else ""
+    # فارغ => None (يتوافق مع EmailStr | None في الموديل)
+    email_json = email.strip() or None
 
-        if linkedin and "://" not in linkedin and "/" not in linkedin.strip("/"):
-            linkedin = f"https://www.linkedin.com/in/{linkedin}"
-        linkedin = _normalize_url(linkedin) if linkedin else ""
+    # (اختياري) تحذير بصري بسيط إن كان الإيميل شكله غير صحيح
+    if email_json and not EMAIL_RE.match(email_json):
+        st.caption("⚠️ That email doesn’t look valid.")
 
-        website = _normalize_url(website) if website else ""
-
-        # gentle validation hints (UI-only)
-        _maybe_warn_email(email)
-        _maybe_warn_url("Website", website)
-        _maybe_warn_url("GitHub", github)
-        _maybe_warn_url("LinkedIn", linkedin)
-
-        # detect changes
-        changed = any(
-            [
-                email != email_init,
-                phone != phone_init,
-                website != website_init,
-                github != gh_init,
-                linkedin != li_init,
-                location != location_init,
-            ]
-        )
-
-        # --- IMPORTANT ---
-        # Convert empty email "" -> None for API (EmailStr | None)
-        email_json = email if email.strip() else None
-
-        # write back
-        new_profile = copy.deepcopy(profile)
-        new_profile.setdefault("contact", {})
-        new_profile["contact"].update(
-            {
-                "email": email_json,
-                "phone": phone,
-                "website": website,
-                "github": github,
-                "linkedin": linkedin,
-                "location": location,
-            }
-        )
-
-        if changed:
-            st.session_state["profile_rev"] = rev + 1
-            st.success("Contact info updated.")
-        else:
-            st.info("No changes detected.")
-
-        return new_profile
-
-    # if not submitted, just return the incoming profile untouched
+    profile["contact"] = {
+        "email":    email_json,
+        "phone":    ph or None,
+        "website":  wb or None,
+        "github":   gh or None,
+        "linkedin": li or None,
+        "location": (location.strip() or None),
+    }
     return profile
