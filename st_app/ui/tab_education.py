@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Dict, List
 
 import streamlit as st
+from st_app.utils.profile_state import _ensure_list
+
 
 COLS = ["title", "school", "start", "end", "details", "url"]
 EMPTY: Dict[str, str] = {k: "" for k in COLS}
@@ -154,3 +156,54 @@ def render(profile: dict) -> dict:
         st.write(profile["education"])
 
     return profile
+
+
+# --- Education --------------------------------------------------------------
+def render_education_section():
+    st.header("Education / Training")
+
+    _ensure_list("education", [])
+    colA, colB = st.columns([1,1], vertical_alignment="center")
+
+    if colA.button("Add Education", key="edu_add", use_container_width=True):
+        st.session_state.education.append({"title":"", "school":"", "start":"", "end":"", "details":"", "url":""})
+
+    if colB.button("Clear All", key="edu_clear_all", type="secondary", use_container_width=True):
+        st.session_state.education.clear()
+
+
+    for i, e in enumerate(st.session_state.education):
+        with st.container(border=True):
+            st.markdown(f"**Entry #{i+1}**")
+            r1c1, r1c2 = st.columns([1,1])
+            e["title"]  = r1c1.text_input("Degree / Program", value=e.get("title",""),  key=f"edu_title_{i}")  # ← title (موحّد مع الـAPI)
+            e["school"] = r1c2.text_input("School / Institution", value=e.get("school",""), key=f"edu_school_{i}")
+
+            r2c1, r2c2 = st.columns([1,1])
+            e["start"] = r2c1.text_input("Start (YYYY or YYYY-MM)", value=e.get("start",""), key=f"edu_start_{i}")
+            e["end"]   = r2c2.text_input("End (YYYY or YYYY-MM)",   value=e.get("end",""),   key=f"edu_end_{i}")
+
+            e["details"] = st.text_area("Details", value=e.get("details",""), key=f"edu_details_{i}")
+            e["url"]     = st.text_input("URL", value=e.get("url",""), key=f"edu_url_{i}", placeholder="Program/institution link")
+
+            b1, b2, b3 = st.columns([1,1,1])
+            if b1.button("↑ Move up",   key=f"edu_up_{i}", use_container_width=True) and i>0:
+                st.session_state.education[i-1], st.session_state.education[i] = st.session_state.education[i], st.session_state.education[i-1]
+                st.rerun()
+            if b2.button("↓ Move down", key=f"edu_dn_{i}", use_container_width=True) and i<len(st.session_state.education)-1:
+                st.session_state.education[i+1], st.session_state.education[i] = st.session_state.education[i], st.session_state.education[i+1]
+                st.rerun()
+            if b3.button("✖ Delete",    key=f"edu_del_{i}", use_container_width=True):
+                st.session_state.education.pop(i)
+                st.rerun()
+
+    with st.expander("Preview (JSON-like)", expanded=False):
+        st.code(st.session_state.education, language="json")
+
+    # ترجع القائمة بصيغة الـAPI مباشرة
+    return [{"title":   e["title"].strip(),
+             "school":  e["school"].strip(),
+             "start":   e["start"].strip(),
+             "end":     e["end"].strip(),
+             "details": e["details"].strip(),
+             "url":     (e["url"].strip() or None)} for e in st.session_state.education]

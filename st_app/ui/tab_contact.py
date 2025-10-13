@@ -1,3 +1,4 @@
+# st_app/ui/tab_contact.py
 from __future__ import annotations
 
 import re
@@ -22,67 +23,53 @@ from st_app.config.ui_defaults import (
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+
 def _s(x: Any) -> str:
     """
     Normalize None to an empty string and strip whitespace from strings.
-
-    Args:
-        x (Any): The input value to normalize.
-
-    Returns:
-        str: A stripped string or empty string if input is None.
     """
     return "" if x is None else str(x).strip()
 
+
 def _normalize_url(u: str) -> str:
     """
-    Normalize a URL to ensure it starts with http or https.
-
-    Args:
-        u (str): The input URL.
-
-    Returns:
-        str: A properly formatted URL.
+    Ensure URL starts with http(s).
     """
     u = (u or "").strip()
     if not u:
         return ""
     return u if u.startswith(("http://", "https://")) else f"https://{u}"
 
+
 def _normalize_phone(p: str) -> str:
     """
-    Normalize a phone number by removing unwanted characters and collapsing spaces.
-
-    Args:
-        p (str): The input phone number.
-
-    Returns:
-        str: A cleaned phone number string.
+    Keep digits, +, -, space, parentheses; collapse spaces.
     """
     p = re.sub(r"[^\d+\-\s()]", "", p or "")
     return re.sub(r"\s+", " ", p).strip()
 
+
 def render(profile: dict) -> dict:
     """
-    Render the 'Contact Info' tab in a Streamlit app.
-
-    Args:
-        profile (dict): The current profile dictionary.
-
-    Returns:
-        dict: The updated profile dictionary with contact information.
+    Render the 'Contact Info' tab and return updated profile['contact'].
     """
     st.subheader("Contact Info")
 
     contact = dict(profile.get("contact") or {})
 
-    email = st.text_input(
+    # Email
+    email_val = st.text_input(
         "Email",
         value=_s(contact.get("email")),
         placeholder=PH_EMAIL,
         max_chars=MAX_EMAIL,
         key="contact_email",
     )
+    email_json = email_val.strip() or None  # null بدل السلسلة الفارغة
+    if email_json and not EMAIL_RE.match(email_json):
+        st.caption("That email doesn’t look valid.")
+
+    # Phone / Website / GitHub / LinkedIn / Location
     phone = st.text_input(
         "Phone",
         value=_s(contact.get("phone")),
@@ -119,6 +106,7 @@ def render(profile: dict) -> dict:
         key="contact_location",
     )
 
+    # Normalize links
     gh = github.strip()
     if gh and "://" not in gh and "/" not in gh.strip("/"):
         gh = f"https://github.com/{gh}"
@@ -132,17 +120,13 @@ def render(profile: dict) -> dict:
     wb = _normalize_url(website) if website.strip() else ""
     ph = _normalize_phone(phone)
 
-    email_json = email.strip() or None
-    if email_json and not EMAIL_RE.match(email_json):
-        st.caption("That email doesn’t look valid.")
-
     profile["contact"] = {
-        "email": email_json,
+        "email": email_json,                 # None إذا فاضي
         "phone": ph or None,
         "website": wb or None,
         "github": gh or None,
         "linkedin": li or None,
-        "location": location.strip() or None,
+        "location": (location.strip() or None),
     }
 
     return profile

@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Dict, List
 
 import streamlit as st
+from st_app.utils.profile_state import _ensure_list
+
 
 COLS = ["title", "desc", "url"]
 EMPTY: Dict[str, str] = {k: "" for k in COLS}
@@ -130,3 +132,44 @@ def render(profile: dict) -> dict:
         st.write(profile["projects"])
 
     return profile
+
+# --- Projects ---------------------------------------------------------------
+def render_projects_section():
+    st.header("Projects")
+
+    _ensure_list("projects", [])
+    colA, colB = st.columns([1,1], vertical_alignment="center")
+
+    if colA.button("Add Project", key="prj_add", use_container_width=True):
+        st.session_state.projects.append({"title":"", "desc":"", "url":""})
+
+    if colB.button("Clear All", key="prj_clear_all", type="secondary", use_container_width=True):
+        st.session_state.projects.clear()
+
+
+    for i, it in enumerate(st.session_state.projects):
+        with st.container(border=True):
+            st.markdown(f"**Project #{i+1}**")
+            c1, c2 = st.columns([1,1])
+            it["title"] = c1.text_input("Title", value=it.get("title",""), key=f"prj_title_{i}")
+            it["desc"]  = c2.text_area("Description", value=it.get("desc",""), key=f"prj_desc_{i}")
+            it["url"]   = st.text_input("URL", value=it.get("url",""), key=f"prj_url_{i}", placeholder="https://github.com/...")
+
+            b1, b2, b3 = st.columns([1,1,1])
+            if b1.button("↑ Move up",   key=f"prj_up_{i}", use_container_width=True) and i>0:
+                st.session_state.projects[i-1], st.session_state.projects[i] = st.session_state.projects[i], st.session_state.projects[i-1]
+                st.rerun()
+            if b2.button("↓ Move down", key=f"prj_dn_{i}", use_container_width=True) and i<len(st.session_state.projects)-1:
+                st.session_state.projects[i+1], st.session_state.projects[i] = st.session_state.projects[i], st.session_state.projects[i+1]
+                st.rerun()
+            if b3.button("✖ Delete",    key=f"prj_del_{i}", use_container_width=True):
+                st.session_state.projects.pop(i)
+                st.rerun()
+
+    with st.expander("Preview (JSON-like)", expanded=False):
+        st.code(st.session_state.projects, language="json")
+
+    # ترجع القائمة بصيغة الـAPI مباشرة
+    return [{"title": p["title"].strip(),
+             "desc":  p["desc"].strip(),
+             "url":   (p["url"].strip() or None)} for p in st.session_state.projects]

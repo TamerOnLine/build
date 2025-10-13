@@ -8,7 +8,7 @@ import streamlit as st
 from core.paths import THEMES_DIR, LAYOUTS_DIR
 from core.schema import ensure_profile_schema
 from core.io_utils import list_json_names
-from core import api_client as api  # ⁄„Ì· «·‹ API
+from core import api_client as api  
 
 from st_app.config.ui_defaults import (
     DEFAULT_API_BASE,
@@ -41,10 +41,7 @@ def _s(x) -> str:
     return "" if x is None else str(x).strip()
 
 def _ss_get_multi(prefix: str, rev: int) -> str:
-    """
-    ÌÕ«Ê· ﬁ—«¡… ﬁÌ„… „‰ session_state ·⁄œ… ≈’œ«—« :
-    rev «·Õ«·Ì À„ «·”«»ﬁ. (Ì„ﬂ‰ ≈÷«›… -2 ≈–« —€» )
-    """
+
     for r in (rev, rev - 1):
         if r is not None and r >= 0:
             v = st.session_state.get(f"{prefix}_{r}")
@@ -69,16 +66,11 @@ def _norm_phone(p: str) -> str:
 # -------------------------
 
 def collect_latest_profile(profile: dict) -> dict:
-    """
-    ÌÃ„⁄ √ÕœÀ «·ﬁÌ„ „‰ «· »ÊÌ»«  „—… Ê«Õœ….
-    Ìﬁ—√ „‰ rev «·Õ«·Ì Ê«·”«»ﬁ · ›«œÌ „‘ﬂ·…  »œ¯· «·„›« ÌÕ »⁄œ —›⁄ rev œ«Œ· «· »ÊÌ»« °
-    ÊÌ” ⁄Ì‰ »«·„›« ÌÕ «·À«» … (name/title) ﬂŒÿ… √„«‰° À„ »„« ›Ì profile.
-    """
+
     rev = st.session_state.get("profile_rev", 0)
     profile = ensure_profile_schema(profile or {})
 
     # --- Basic (header) ---
-    # Ã—¯» rev «·Õ«·Ì/«·”«»ﬁ° À„ «·„›« ÌÕ «·À«» …° À„ «·„ÊÃÊœ ›Ì profile
     def _ss_get_name_title() -> tuple[str, str]:
         for r in (rev, rev - 1):
             if r is not None and r >= 0:
@@ -86,7 +78,6 @@ def collect_latest_profile(profile: dict) -> dict:
                 tt = st.session_state.get(f"title_{r}")
                 if nm or tt:
                     return (_s(nm), _s(tt))
-        # «·„›« ÌÕ «·À«» … ( À»¯  œ«Œ· tab_basic »⁄œ «·Õ›Ÿ)
         nm = st.session_state.get("name")
         tt = st.session_state.get("title")
         return (_s(nm), _s(tt))
@@ -153,7 +144,6 @@ def collect_latest_profile(profile: dict) -> dict:
     projects = []
     i = 0
     while True:
-        #  Õﬁﬁ „‰ ÊÃÊœ ’› »√Ì rev («·Õ«·Ì √Ê «·”«»ﬁ)
         has_any = any(
             f in st.session_state
             for f in (f"proj_title_{rev}_{i}", f"proj_desc_{rev}_{i}", f"proj_url_{rev}_{i}",
@@ -208,14 +198,11 @@ def collect_latest_profile(profile: dict) -> dict:
         profile.pop("education", None)
 
     # --- Photo / Avatar ---
-    #  »ÊÌ» «·’Ê—… Ì÷⁄ avatar_b64 ›Ì «·‹ session
     if st.session_state.get("avatar_b64"):
         profile["avatar_b64"] = st.session_state["avatar_b64"]
-    # ·Ê ›Ì photo_bytes „‰ «·„⁄«·Ã° Œ“¯‰Â ﬂ‹ photo_b64
     if st.session_state.get("photo_bytes"):
         profile["photo_b64"] = base64.b64encode(st.session_state["photo_bytes"]).decode("ascii")
 
-    #  ‰ŸÌ„ ‰Â«∆Ì
     profile = ensure_profile_schema(profile)
     return profile
 
@@ -244,7 +231,7 @@ def render_sidebar() -> dict:
             ["(none)"] + layout_files,
             index=1 if layout_files else 0,
             key="layout_file",
-            help="«Œ — „·› ·«Ì‹«Ê  „‰ /layouts.",
+            help="Select a layout file from /layouts.",
         )
 
         st.markdown("---")
@@ -282,10 +269,12 @@ def render_sidebar() -> dict:
         # ---- Save ----
         with col_p_save:
             profile_name_in = st.text_input("Save as (name only)", value="my_profile", key="save_profile_as_api")
-            if st.button("Save Profile", key="btn_save_profile_api"):
+            if st.button(
+                "Save Profile",
+                 key="btn_save_profile_api",
+                use_container_width=True):
                 try:
                     name = _clean_name(profile_name_in)
-                    # ? «Ã„⁄ √ÕœÀ «·ﬁÌ„ „‰ «·Ê«ÃÂ… „»«‘—… (rev Ê rev-1 Ê«·„›« ÌÕ «·À«» …)
                     current = st.session_state.get("profile", {})
                     payload = collect_latest_profile(ensure_profile_schema(current))
                     api.save_profile(name, payload)

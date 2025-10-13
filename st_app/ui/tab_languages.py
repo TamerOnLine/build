@@ -1,53 +1,15 @@
 from __future__ import annotations
-
 import streamlit as st
 
-from core.io_utils import to_lines
-from st_app.config.ui_defaults import (
-    LANGUAGES_TEXTAREA_LABEL,
-    LANGUAGES_TEXTAREA_HEIGHT,
-    LANG_COLUMNS,
-)
-
-def render(profile: dict) -> dict:
-    """
-    Render the 'Languages' tab for the Streamlit app.
-
-    Args:
-        profile (dict): The current profile dictionary.
-
-    Returns:
-        dict: Updated profile dictionary with language entries.
-
-    Notes:
-        - Uses a form similar to tab_basic.
-        - Ensures only real changes update profile state.
-    """
+def render_languages_tab():
     st.subheader("Languages")
-    rev = st.session_state.get("profile_rev", 0)
+    text = st.text_area(
+        "One language per line (optionally with level)",
+        value="\n".join(st.session_state.profile.get("languages", []) or []),
+        height=120,
+    )
+    langs = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    st.session_state.profile["languages"] = langs
 
-    langs = profile.get("languages") or []
-
-    with st.form(key=f"languages_form_{rev}", clear_on_submit=False):
-        langs_text = st.text_area(
-            LANGUAGES_TEXTAREA_LABEL,
-            value="\n".join(langs),
-            key=f"languages_text_{rev}",
-            height=LANGUAGES_TEXTAREA_HEIGHT,
-            placeholder=f"e.g., {LANG_COLUMNS}",
-            help="One per line: Language — Level (e.g., Arabic — Native, English — B1).",
-        )
-        submitted = st.form_submit_button("Save languages")
-
-    if submitted:
-        new_langs = to_lines(langs_text)
-        changed = new_langs != langs
-        profile["languages"] = new_langs
-
-        if changed:
-            st.session_state["profile_rev"] = rev + 1
-            st.success("Languages updated.")
-        else:
-            st.info("No changes detected.")
-
-    return profile
+    st.caption("Example:\nArabic (Native)\nEnglish (B2)\nGerman (A2)")
+    return langs

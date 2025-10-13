@@ -1,50 +1,58 @@
+# st_app/app.py
 from __future__ import annotations
 
-# --- bootstrap for imports ---
 from pathlib import Path
 import sys
-
-# أضف جذر المشروع إلى sys.path (ليتعرف على st_app كموديول)
-ROOT = Path(__file__).resolve().parents[1]  # -> D:\build
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-# -----------------------------
-
-
+import os
 import json
 from typing import Any, Dict
+from urllib.parse import urlsplit
 
+import requests
 import streamlit as st
+from dotenv import load_dotenv
 
-from st_app.ui.tab_summary import render as tab_summary
-from st_app.ui.tab_skills import render as tab_skills
-from st_app.ui.tab_contact import render as tab_contact
-from st_app.ui.tab_projects import render as tab_projects
-from st_app.ui.tab_education import render as tab_education
-from st_app.ui.tab_headshot import render as tab_headshot
+# ------------------------------------------------------------
+# مسار المشروع الرئيسي
+# ------------------------------------------------------------
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-try:
-    from st_app.core.api_client import api_generate_pdf
-except Exception:
-    def api_generate_pdf(payload: Dict[str, Any]) -> bytes:
-        raise RuntimeError("Missing api_generate_pdf. Check st_app/core/api_client.py")
+# ------------------------------------------------------------
+# تحميل الإعدادات من .env وتهيئة API_BASE + api_origin
+# ------------------------------------------------------------
+load_dotenv(dotenv_path=ROOT / ".env")
+API_BASE = (
+    os.getenv("API_BASE")
+    or os.getenv("STREAMLIT_API_BASE")
+    or "http://127.0.0.1:8000/api/v1"
+)
 
-try:
-    from st_app.core.layout import choose_layout_inline, inject_headshot_into_layout
-except Exception:
-    def choose_layout_inline(_: str) -> Dict[str, Any] | None:
-        return None
+def _api_origin_from_base(api_base: str) -> str:
+    """Extract origin (scheme + host) from API_BASE like http://127.0.0.1:8000/api/v1"""
+    parts = urlsplit(api_base)
+    return f"{parts.scheme}://{parts.netloc}"
 
-    def inject_headshot_into_layout(layout: Dict[str, Any] | None, headshot: bytes | None):
-        return layout
+st.session_state.setdefault("api_origin", _api_origin_from_base(API_BASE))
 
-def normalize_theme_name(name: str) -> str:
-    return (name or "").strip().lower().replace(" ", "-")
+# ------------------------------------------------------------
+# استيراد الأدوات والمكونات
+# ------------------------------------------------------------
+from st_app.utils.profile_state import init_profile_in_state
+from st_app.ui.tab_projects import render_projects_section
+from st_app.ui.tab_education import render_education_section
+from st_app.ui.tab_languages import render_languages_tab
+from st_app.ui.tab_headshot import render_headshot_tab
 
+
+# ------------------------------------------------------------
+# الحالة الافتراضية للبروفايل
+# ------------------------------------------------------------
 def _default_profile() -> Dict[str, Any]:
     return {
         "header": {"name": "", "title": ""},
-        "summary": "",
+        "summary": [],
         "skills": [],
         "contact": {
             "email": "",
@@ -56,156 +64,233 @@ def _default_profile() -> Dict[str, Any]:
         },
         "projects": [],
         "education": [],
+        "languages": [],
+        "avatar_url": "",
     }
 
+
+
+
 def ensure_session_state() -> None:
+    profiles_dir = Path.cwd() / "profiles"  # المجلد المحلي للبروفايلات
+    latest_profile = None
+
+    if profiles_dir.exists():
+        # ابحث عن أحدث ملف profile.json داخل أي مجلد بروفايل
+        all_profiles = sorted(
+            profiles_dir.glob("*/profile.json"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if all_profiles:
+            latest_profile = all_profiles[0].parent.name  # اسم المجلد = اسم البروفايل
+
+    # احفظ الاسم في الجلسة (أحدث بروفايل أو القيمة الافتراضية "tamer")
+    st.session_state.setdefault("profile_name", latest_profile or "tamer")
     st.session_state.setdefault("profile", _default_profile())
-    st.session_state.setdefault("headshot_bytes", None)
-    st.session_state.setdefault("profile_name", "tamer")
-    st.session_state.setdefault("theme_name", "aqua-card")
+    st.session_state.setdefault("profile_loaded", False)
 
+
+
+# ------------------------------------------------------------
+# الشريط الجانبي (Sidebar)
+# ------------------------------------------------------------
 def render_sidebar() -> None:
-    from pathlib import Path
-    import json
-
     with st.sidebar:
-        st.header("Profile Settings")
+        st.header("⚙️ Settings")
 
-        st.session_state.profile_name = st.text_input(
-            "Profile name (folder)",
-            value=st.session_state.get("profile_name", "tamer"),
-            help="Used as profiles/<name>/"
+        st.text_input("Profile name", key="profile_name")
+
+        col1, col2 = st.columns(2)
+        if col1.button("Reload from API"):
+            reload_from_api()
+
+        if col2.button("Save to API", type="primary"):
+            save_to_api()
+
+        with st.expander("Current Profile (JSON)", expanded=False):
+            st.code(
+                json.dumps(st.session_state.profile, ensure_ascii=False, indent=2),
+                language="json",
+            )
+
+
+# ------------------------------------------------------------
+# تحميل / حفظ البروفايل عبر API
+# ------------------------------------------------------------
+def reload_from_api() -> None:
+    try:
+        resp = requests.get(
+            f"{API_BASE}/profiles/get",
+            params={"name": st.session_state.profile_name},
+            timeout=15,
         )
+        if resp.status_code == 200:
+            data = resp.json() or {}
+            st.session_state.profile = data.get("profile", {}) or _default_profile()
+            init_profile_in_state(st.session_state.profile)
+            st.success("✅ Profile loaded from API")
+        else:
+            st.info("ℹ️ No saved profile found; starting with empty profile.")
+            st.session_state.profile = _default_profile()
+            init_profile_in_state(st.session_state.profile)
+    except Exception as e:
+        st.error(f"API load failed: {e}")
 
-        theme_input = st.text_input(
-            "Theme name",
-            value=st.session_state.get("theme_name", "aqua-card"),
-        )
-        st.session_state.theme_name = normalize_theme_name(theme_input)
 
-        st.divider()
+def save_to_api() -> None:
+    profile = st.session_state.profile
+    projects = st.session_state.get("projects_for_api", [])
+    education = st.session_state.get("education_for_api", [])
+    languages = st.session_state.get("languages_for_api", profile.get("languages", []))
 
-        # ====== Save / Load in sidebar ======
-        col_s, col_l = st.columns(2)
-        with col_s:
-            if st.button("💾 Save profile", key="sidebar_save_profile"):
-                try:
-                    out_dir = Path("profiles") / st.session_state.profile_name
-                    out_dir.mkdir(parents=True, exist_ok=True)
+    profile["projects"] = projects
+    profile["education"] = education
+    profile["languages"] = languages
 
-                    # إن وُجدت صورة headshot في الجلسة، احفظها كملف ودوّن مرجعها في الـ JSON
-                    photo_bytes = st.session_state.get("headshot_bytes")
-                    if photo_bytes:
-                        (out_dir / "headshot.png").write_bytes(photo_bytes)
-                        st.session_state.profile.setdefault("avatar", "headshot.png")
+    # 👇 تطبيع حقول الاتصال: حوّل السلاسل الفارغة إلى None
+    contact = profile.get("contact", {}) or {}
+    for k in ("email", "phone", "website", "github", "linkedin", "location"):
+        v = contact.get(k)
+        if isinstance(v, str) and not v.strip():
+            contact[k] = None
+    profile["contact"] = contact
 
-                    (out_dir / "profile.json").write_text(
-                        json.dumps(st.session_state.profile, ensure_ascii=False, indent=2),
-                        encoding="utf-8"
-                    )
-                    st.success(f"Saved: {(out_dir / 'profile.json').as_posix()}")
-                except Exception as e:
-                    st.error(f"Save error: {e}")
+    try:
+        payload = {"name": st.session_state.profile_name, "profile": profile}
+        r = requests.post(f"{API_BASE}/profiles/save", json=payload, timeout=20)
+        if r.status_code == 200:
+            st.success("✅ Profile saved successfully")
+        else:
+            st.error(f"Save failed: {r.status_code} — {r.text}")
+    except Exception as e:
+        st.error(f"Error saving: {e}")
 
-        with col_l:
-            if st.button("📂 Load profile", key="sidebar_load_profile"):
-                try:
-                    in_dir = Path("profiles") / st.session_state.profile_name
-                    json_fp = in_dir / "profile.json"
-                    if json_fp.exists():
-                        data = json.loads(json_fp.read_text(encoding="utf-8"))
-                        st.session_state.profile = data
-                        # إن وُجدت الصورة على القرص، حملها إلى الجلسة لعرضها فورًا
-                        avatar = data.get("avatar")
-                        if avatar:
-                            img_fp = in_dir / avatar
-                            if img_fp.exists():
-                                st.session_state["headshot_bytes"] = img_fp.read_bytes()
-                        st.success(f"Loaded: {json_fp.as_posix()}")
-                    else:
-                        st.warning(f"File not found: {json_fp.as_posix()}")
-                except Exception as e:
-                    st.error(f"Load error: {e}")
 
-        st.divider()
 
-        # ====== Generate PDF ======
-        if st.button("📄 Generate PDF", key="gen_pdf_btn"):
-            try:
-                profile = st.session_state.profile.copy()
-                photo_bytes: bytes | None = st.session_state.get("headshot_bytes")
+# ------------------------------------------------------------
+# تبويبات واجهة المستخدم
+# ------------------------------------------------------------
+def render_header_tab() -> None:
+    st.subheader("Header")
+    c1, c2 = st.columns([1, 1])
+    st.session_state.profile["header"]["name"] = c1.text_input(
+        "Full name", value=st.session_state.profile["header"].get("name", "")
+    )
+    st.session_state.profile["header"]["title"] = c2.text_input(
+        "Title / Role", value=st.session_state.profile["header"].get("title", "")
+    )
 
-                layout = choose_layout_inline("")   # استخدم التخطيط الافتراضي إن لم يوجد
-                layout = inject_headshot_into_layout(layout, photo_bytes)
 
-                payload = {
-                    "theme_name": st.session_state.theme_name,
-                    "ui_lang": "en",
-                    "rtl_mode": False,
-                    "layout": layout,
-                    "profile": profile,
-                }
+def render_summary_tab() -> None:
+    st.subheader("Summary")
+    text = st.text_area(
+        "Write a short professional summary (one point per line)",
+        value="\n".join(st.session_state.profile.get("summary", []) or []),
+        height=120,
+    )
+    st.session_state.profile["summary"] = [
+        ln.strip() for ln in text.splitlines() if ln.strip()
+    ]
 
-                pdf_bytes = api_generate_pdf(payload)
-                st.download_button(
-                    "Download PDF",
-                    data=pdf_bytes,
-                    file_name=f"{st.session_state.profile_name}.pdf",
-                    mime="application/pdf",
-                )
-            except Exception as e:
-                st.error(f"PDF generation error: {e}")
 
+def render_skills_tab() -> None:
+    st.subheader("Key Skills")
+    skills_csv = st.text_input(
+        "Skills (comma-separated)",
+        value=",".join(st.session_state.profile.get("skills", []) or []),
+        placeholder="Python, FastAPI, PostgreSQL, ReportLab, Streamlit",
+    )
+    st.session_state.profile["skills"] = [
+        s.strip() for s in skills_csv.split(",") if s.strip()
+    ]
+
+
+def render_contact_tab() -> None:
+    st.subheader("Contact Information")
+    c1, c2 = st.columns([1, 1])
+    st.session_state.profile["contact"]["email"] = c1.text_input(
+        "Email", value=st.session_state.profile["contact"].get("email", "")
+    )
+    st.session_state.profile["contact"]["phone"] = c2.text_input(
+        "Phone", value=st.session_state.profile["contact"].get("phone", "")
+    )
+
+    c3, c4 = st.columns([1, 1])
+    st.session_state.profile["contact"]["website"] = c3.text_input(
+        "Website", value=st.session_state.profile["contact"].get("website", "")
+    )
+    st.session_state.profile["contact"]["github"] = c4.text_input(
+        "GitHub", value=st.session_state.profile["contact"].get("github", "")
+    )
+
+    c5, c6 = st.columns([1, 1])
+    st.session_state.profile["contact"]["linkedin"] = c5.text_input(
+        "LinkedIn", value=st.session_state.profile["contact"].get("linkedin", "")
+    )
+    st.session_state.profile["contact"]["location"] = c6.text_input(
+        "Location", value=st.session_state.profile["contact"].get("location", "")
+    )
+
+
+# ------------------------------------------------------------
+# التشغيل الرئيسي
+# ------------------------------------------------------------
 def main() -> None:
+    st.set_page_config(page_title="Resume Builder", layout="wide", page_icon="🧩")
     ensure_session_state()
     render_sidebar()
 
     st.title("Resume Builder")
 
-    tabs = st.tabs([
-        "Header", "Summary", "Skills", "Contact", "Projects", "Education", "Headshot"
-    ])
+    # تحميل أولي للبروفايل من الـ API
+    if not st.session_state.profile_loaded:
+        reload_from_api()
+        st.session_state.profile_loaded = True
 
-    with tabs[0]:
-        st.subheader("Header")
-        st.session_state.profile.setdefault("header", {})
-        c1, c2 = st.columns(2)
-        with c1:
-            st.session_state.profile["header"]["name"] = st.text_input(
-                "Full name",
-                value=st.session_state.profile["header"].get("name", ""),
-                placeholder="e.g., Tamer Hamad Faour",
-                key="header_name",
-            )
-        with c2:
-            st.session_state.profile["header"]["title"] = st.text_input(
-                "Professional title",
-                value=st.session_state.profile["header"].get("title", ""),
-                placeholder="e.g., Software Developer",
-                key="header_title",
-            )
+    # التبويبات
+    tab_header, tab_summary, tab_skills, tab_contact, tab_projects, tab_education, tab_languages, tab_headshot = st.tabs(
+        [
+            "Header",
+            "Summary",
+            "Skills",
+            "Contact",
+            "Projects",
+            "Education",
+            "Languages",
+            "Headshot",
+        ]
+    )
 
-    with tabs[1]:
-        st.session_state.profile = tab_summary(st.session_state.profile)
-    with tabs[2]:
-        st.session_state.profile = tab_skills(st.session_state.profile)
-    with tabs[3]:
-        st.session_state.profile = tab_contact(st.session_state.profile)
-    with tabs[4]:
-        st.session_state.profile = tab_projects(st.session_state.profile)
-    with tabs[5]:
-        st.session_state.profile = tab_education(st.session_state.profile)
-    with tabs[6]:
-        st.session_state.profile = tab_headshot(st.session_state.profile)
+    with tab_header:
+        render_header_tab()
 
-    st.divider()
+    with tab_summary:
+        render_summary_tab()
+
+    with tab_skills:
+        render_skills_tab()
+
+    with tab_contact:
+        render_contact_tab()
+
+    with tab_projects:
+        projects_for_api = render_projects_section()
+        st.session_state["projects_for_api"] = projects_for_api
+
+    with tab_education:
+        education_for_api = render_education_section()
+        st.session_state["education_for_api"] = education_for_api
+
+    with tab_languages:
+        languages_for_api = render_languages_tab()
+        st.session_state["languages_for_api"] = languages_for_api
+
+    with tab_headshot:
+        render_headshot_tab()
 
 
-    with st.expander("Debug — profile JSON"):
-        st.code(
-            json.dumps(st.session_state.profile, ensure_ascii=False, indent=2),
-            language="json",
-        )
+
 
 if __name__ == "__main__":
     main()
