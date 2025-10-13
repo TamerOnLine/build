@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -197,4 +197,5 @@ def load_and_apply(theme_name: Optional[str]) -> dict:
     theme = load_theme(theme_name)
     apply_theme_to_config(theme)
     return theme
+
 

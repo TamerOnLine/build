@@ -52,3 +52,4 @@ def test_block_smoke():
     p = out / f"smoke_{block_id}.pdf"
     p.write_bytes(pdf)
     assert p.exists() and p.stat().st_size > 1000, "PDF too small or not written"
+

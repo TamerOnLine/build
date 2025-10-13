@@ -1,4 +1,4 @@
-﻿# api/pdf_utils/layout.py
+# api/pdf_utils/layout.py
 from __future__ import annotations
 from typing import Dict, Any, List
 from reportlab.lib.units import mm
@@ -107,4 +107,5 @@ def render_with_layout(c: Canvas, layout: Dict[str, Any], data_map: Dict[str, An
             merged = {**base_data, **ov}
             new_y = block.render(c, frame, merged, ctx)
             frame = Frame(x=frame.x, y=new_y, w=frame.w)
+
 

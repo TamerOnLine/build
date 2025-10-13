@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from reportlab.pdfbase import pdfmetrics
 from reportlab.lib import colors
 from ..config import *
@@ -50,4 +50,5 @@ class EducationBlock:
         return y
 
 register(EducationBlock())
+
 

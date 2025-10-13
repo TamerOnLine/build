@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional, Tuple
@@ -161,8 +161,8 @@ def draw_heading_with_icon(
             draw_x += icon_w + pad_x
         except Exception:
             c.setFont(font, size)
-            c.drawString(draw_x, y - baseline_tweak, "â€¢")
-            draw_x += _text_width("â€¢ ", font, size)
+            c.drawString(draw_x, y - baseline_tweak, "•")
+            draw_x += _text_width("• ", font, size)
 
     c.setFont(font, size)
     c.setFillColor(color)
@@ -296,4 +296,5 @@ __all__ = [
     "DEFAULT_INFO_ICONS",
     "ICON_PATHS",
 ]
+
 

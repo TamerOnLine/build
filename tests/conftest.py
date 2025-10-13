@@ -21,3 +21,4 @@ def app(_tmp_profiles_dir):
 @pytest.fixture()
 def client(app):
     return TestClient(app)
+

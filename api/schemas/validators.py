@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import json
 from pathlib import Path
 from jsonschema import validate, Draft202012Validator
@@ -44,4 +44,5 @@ def assert_valid_theme(obj: dict) -> None:
     if errors:
         msgs = [f"{'/'.join(map(str, e.path))}: {e.message}" for e in errors]
         raise ValueError("Theme JSON invalid:\n  - " + "\n  - ".join(msgs))
+
 

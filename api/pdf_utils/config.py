@@ -1,4 +1,4 @@
-﻿from reportlab.lib import colors
+from reportlab.lib import colors
 from reportlab.lib.units import mm
 
 """
@@ -123,4 +123,5 @@ USE_MOBILE_LINKEDIN = False
 # -----------------------------
 # Supported: "en", "de", "ar"
 UI_LANG = "en"
+
 

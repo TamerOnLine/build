@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from enum import Enum
@@ -116,4 +116,5 @@ UILangEnum = make_str_enum("UILangEnum", UI_LANGS)
 DEFAULT_THEME = "default" if "default" in THEME_NAMES else (THEME_NAMES[0] if THEME_NAMES else "default")
 DEFAULT_LAYOUT = "single-column" if "single-column" in LAYOUT_NAMES else (LAYOUT_NAMES[0] if LAYOUT_NAMES else "single-column")
 DEFAULT_UI = "ar" if "ar" in UI_LANGS else (UI_LANGS[0] if UI_LANGS else "ar")
+
 

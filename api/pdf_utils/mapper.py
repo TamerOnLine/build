@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 EN_DASH = "\u2013"  # "–"
@@ -151,7 +151,7 @@ def profile_to_overrides(profile: Dict[str, Any]) -> Dict[str, Any]:
     if summary:
         ov["text_section:summary"] = {"data": {"section": "summary", "text": summary}}
 
-    # social_links يمكن استخدامها كاستقدام contact كمدخل مباشر (مثلاً github/linkedin/website...)
+    # social_links íãßä ÇÓÊÎÏÇãåÇ ßÇÓÊÞÏÇã contact ßãÏÎá ãÈÇÔÑ (ãËáÇð github/linkedin/website...)
     if contact:
         ov["social_links"] = {"data": contact}
 
@@ -167,3 +167,4 @@ def profile_to_overrides(profile: Dict[str, Any]) -> Dict[str, Any]:
         ov["education"] = {"data": {"items": ed_items}}
 
     return ov
+

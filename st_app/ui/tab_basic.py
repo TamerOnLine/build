@@ -1,29 +1,49 @@
-﻿# st_app/ui/tab_basic.py
 from __future__ import annotations
-from typing import Any
+
 import copy
+from typing import Any
+
 import streamlit as st
 
 from st_app.config.ui_defaults import (
-    PH_FULL_NAME, PH_TITLE, MAX_NAME, MAX_TITLE
+    PH_FULL_NAME,
+    PH_TITLE,
+    MAX_NAME,
+    MAX_TITLE,
 )
 
 def _trim(x: Any) -> str:
+    """
+    Return a trimmed string version of the input.
+
+    Args:
+        x (Any): The input value to be trimmed.
+
+    Returns:
+        str: A stripped string if input is not None; otherwise, an empty string.
+    """
     return "" if x is None else str(x).strip()
 
 def render(profile: dict) -> dict:
     """
-    Render 'Basic Info' tab and return the (possibly) updated profile dict.
-    Uses a form; bumps profile_rev on real changes (same idea as tab_contact).
-    Also saves stable copies into session_state (name/title/profile) so the sidebar
-    can always read latest values regardless of rev bumps.
+    Render the 'Basic Info' tab in a Streamlit app.
+
+    Args:
+        profile (dict): The current profile data.
+
+    Returns:
+        dict: The updated profile dictionary after potential changes.
+
+    Notes:
+        - Uses a form to update basic profile info (name and title).
+        - Updates session state on real changes to ensure consistency.
     """
     st.subheader("Basic Info")
     rev = st.session_state.get("profile_rev", 0)
 
-    # initial values from profile.header
+    # Initial values from profile.header
     header = dict(profile.get("header") or {})
-    name_init  = _trim(header.get("name"))
+    name_init = _trim(header.get("name"))
     title_init = _trim(header.get("title"))
 
     # -------- UI Form --------
@@ -51,27 +71,23 @@ def render(profile: dict) -> dict:
         submitted = st.form_submit_button("Save basic info")
 
     if not submitted:
-        # لا تغيير على البروفايل إن لم يتم الإرسال
         return profile
 
     # -------- After submit: read current values --------
-    name  = _trim(st.session_state.get(f"name_{rev}", name_init))
+    name = _trim(st.session_state.get(f"name_{rev}", name_init))
     title = _trim(st.session_state.get(f"title_{rev}", title_init))
 
     changed = (name != name_init) or (title != title_init)
 
-    # اكتب القيم داخل profile["header"] دائمًا
     new_profile = copy.deepcopy(profile)
     new_profile.setdefault("header", {})
-    new_profile["header"]["name"]  = name
+    new_profile["header"]["name"] = name
     new_profile["header"]["title"] = title
 
-    # ✅ ثبّت نسخ بدون rev داخل session_state لالتقاطها من الشريط الجانبي بسهولة
     st.session_state["name"] = name
     st.session_state["title"] = title
-    st.session_state["profile"] = new_profile  # ليتأكد sidebar من أحدث نسخة
+    st.session_state["profile"] = new_profile
 
-    # آلية Contact نفسها: نرفع rev فقط إذا كان هناك تغيير
     if changed:
         st.session_state["profile_rev"] = rev + 1
         st.success("Basic info updated.")

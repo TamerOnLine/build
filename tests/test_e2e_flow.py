@@ -125,3 +125,4 @@ def test_print_final_pdf(tmp_path):
     out = tmp_path / "final_resume.pdf"
     out.write_bytes(pdf)
     assert out.exists() and out.stat().st_size > 2000
+

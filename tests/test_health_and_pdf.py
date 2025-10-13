@@ -20,3 +20,4 @@ def test_generate_form_simple_minimal(client):
     }
     r = client.post("/generate-form-simple", json=payload)
     assert r.status_code in (200, 201)
+

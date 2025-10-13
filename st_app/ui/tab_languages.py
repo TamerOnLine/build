@@ -1,21 +1,31 @@
-﻿from __future__ import annotations
+from __future__ import annotations
+
 import streamlit as st
+
 from core.io_utils import to_lines
 from st_app.config.ui_defaults import (
     LANGUAGES_TEXTAREA_LABEL,
     LANGUAGES_TEXTAREA_HEIGHT,
-    LANG_COLUMNS
+    LANG_COLUMNS,
 )
 
 def render(profile: dict) -> dict:
     """
-    Render the 'Languages' tab with transparent defaults (no prefilled values).
-    Mirrors tab_basic form behavior.
+    Render the 'Languages' tab for the Streamlit app.
+
+    Args:
+        profile (dict): The current profile dictionary.
+
+    Returns:
+        dict: Updated profile dictionary with language entries.
+
+    Notes:
+        - Uses a form similar to tab_basic.
+        - Ensures only real changes update profile state.
     """
     st.subheader("Languages")
     rev = st.session_state.get("profile_rev", 0)
 
-    # current languages (empty by default = transparent)
     langs = profile.get("languages") or []
 
     with st.form(key=f"languages_form_{rev}", clear_on_submit=False):

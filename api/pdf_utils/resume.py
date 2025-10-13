@@ -1,4 +1,5 @@
-﻿from __future__ import annotations
+# api/pdf_utils/resume.py
+from __future__ import annotations
 
 from io import BytesIO
 from typing import Dict, Any, List, Tuple, Optional
@@ -7,25 +8,38 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, LETTER
 from reportlab.lib.units import mm
 
+# internal imports
 from .blocks.base import Frame, RenderContext
 from .blocks.registry import get as get_block
-from .data_utils import build_ready_from_profile
 from .config import UI_LANG
 from .theme_loader import load_and_apply
 from .block_aliases import canonicalize
-from .data_utils import build_ready_from_profile  
+from .engine import LayoutEngine, PageSpec
+from .data_utils import _blocks_adapter, build_ready_from_profile as _fallback_build_ready
+
+# --- mapper guard & fallback -------------------------------------------------
 try:
-    from .data_mapper import map_profile_to_ready  
+    # ≈‰ ÊıÃœ mapper ÕœÌÀ ÌÕÊ¯· profile -> ready
+    from .data_mapper import map_profile_to_ready  # type: ignore
+    _HAS_MAPPER = True
 except Exception:
+    # ›Ì Õ«· ⁄œ„ ÊÃÊœÂ° «” ⁄„· Fallback Ì»‰Ì ready „»«‘—… „‰ «·‹profile
     _HAS_MAPPER = False
 
-
-from .engine import LayoutEngine, PageSpec
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4, LETTER
-from reportlab.lib.units import mm
-from api.pdf_utils.data_utils import _blocks_adapter
-
+    def map_profile_to_ready(
+        profile: dict,
+        *,
+        ui_lang: Optional[str] = None,
+        rtl_mode: Optional[bool] = None,
+        map_rules_override: Optional[dict] = None,
+    ):
+        """
+        Fallback „»”¯ÿ: Ì»‰Ì ready „‰ «·‹profile „»«‘—….
+        Ìı⁄Ìœ (ready, warnings)
+        """
+        ready = _fallback_build_ready(profile)
+        return ready, []
+# ---------------------------------------------------------------------------
 
 # Default page size and margins
 PAGE_W, PAGE_H = A4
@@ -51,53 +65,25 @@ def build_resume_pdf(
     theme: Optional[str] = None,
     page: Optional[Dict[str, Any]] = None,
 ) -> bytes:
-    """Build a resume PDF from modern or legacy inputs.
-
-    This function supports two usage modes:
-
-    * **Modern usage**: Provide a ``data`` mapping that includes keys such as
-      ``profile``, ``ui_lang``, ``rtl_mode``, ``theme_name``, and
-      ``layout_inline``. The function resolves the layout, applies defaults, and
-      renders the PDF.
-    * **Legacy usage**: Provide ``layout_plan`` and ``ready`` along with optional
-      ``ui_lang``, ``rtl_mode``, and ``theme_name``. Fallback layout/columns are
-      used when not supplied.
-
-    Args:
-        data: Modern input mapping containing profile and configuration values.
-        layout_plan: Legacy layout plan (list of section dictionaries).
-        ready: Legacy preprocessed data mapping to render.
-        ui_lang: UI language code (e.g., "en").
-        rtl_mode: Whether right-to-left rendering is enabled.
-        theme_name: Name of the theme to load and apply.
-        theme: Optional alias for ``theme_name``; if provided and
-            ``theme_name`` is missing, this value is used.
-        page: Page configuration mapping (e.g., size, margins).
-
-    Returns:
-        bytes: The rendered PDF as a byte string.
-
-    Notes:
-        - Logic is preserved from the original implementation; only formatting
-          and documentation were adjusted to comply with PEP 8 and documentation
-          standards.
-        - This function relies on external helpers such as ``load_and_apply``,
-          ``map_profile_to_ready``, ``_resolve_layout_columns_page_from_inline``,
-          ``_apply_page_defaults``, and ``_render_pdf``.
+    """
+    Ì»‰Ì PDF ≈„¯« „‰ ≈œŒ«· ÕœÌÀ (data) √Ê „‰ ≈œŒ«·  ﬁ·ÌœÌ (layout_plan + ready).
     """
     if theme and not theme_name:
         theme_name = theme
 
-    # -------- Modern usage --------
+    # -------- Modern usage (data) --------
     if data is not None:
         ui = data.get("ui_lang") or UI_LANG
         rtl = bool(data.get("rtl_mode"))
         profile = data.get("profile") or {}
+        #  ﬂÌÌ› profile ≈·Ï «·»‰Ì… «·„ Êﬁ⁄… ··»·Êﬂ«  (’Ê—° —Ê«»ÿ... ≈·Œ)
         profile = _blocks_adapter(profile)
+
         tn = theme_name or data.get("theme_name") or "default"
         theme_dict = load_and_apply(tn)
 
         # Mapping layer (Mapper) with fallback.
+        rd: Dict[str, Any]
         if _HAS_MAPPER:
             li = data.get("layout_inline") or {}
             rd, map_warnings = map_profile_to_ready(
@@ -109,7 +95,7 @@ def build_resume_pdf(
             if map_warnings:
                 print("[Mapper] warnings:", map_warnings)
         else:
-            rd = build_ready_from_profile(profile)
+            rd = _fallback_build_ready(profile)
 
         plan, cols, page_conf = _resolve_layout_columns_page_from_inline(data)
         _apply_page_defaults(page_conf)
@@ -158,8 +144,8 @@ def _render_pdf(
     page: Optional[Dict[str, Any]] = None,
 ) -> bytes:
     """
-    Render the PDF. If layout_plan is a dict with flow => use modern engine.
-    Otherwise fall back to legacy list-based rendering.
+    Ì—”„ «·‹PDF. ≈–« ﬂ«‰ layout_plan dict Ê›ÌÂ flow ‰” Œœ„ «·„Õ—ﬂ «·ÕœÌÀ°
+    Ê≈·« ‰” Œœ„ «·„Õ—ﬂ «· ﬁ·ÌœÌ «·ﬁ«∆„ ⁄·Ï ﬁ«∆„… »·Êﬂ« .
     """
     # ---------------------------
     # Modern engine (flow-based)
@@ -169,7 +155,6 @@ def _render_pdf(
         buf = BytesIO()
         c = canvas.Canvas(buf, pagesize=pagesize)
 
-        # Page margins in points
         margins = {
             "top":    _get_margin(page, "top",    default_px=TOP_MARGIN),
             "right":  _get_margin(page, "right",  default_px=RIGHT_MARGIN),
@@ -283,20 +268,12 @@ def _render_pdf(
 # ============================================================
 def _resolve_layout_columns_page_from_inline(data: Dict[str, Any]):
     """
-    Extracts layout_plan, columns, and page_conf from data["layout_inline"],
-    or returns fallbacks if not present.
-
-    Args:
-        data (Dict[str, Any]): Input data dictionary containing layout_inline.
-
-    Returns:
-        Tuple[List[Dict[str, Any]], Dict[str, Tuple[float, float]], Dict[str, Any]]:
-            A tuple containing the layout plan, column definitions, and page config.
+    Ì” Œ—Ã layout_plan Ê columns Ê page_conf „‰ data['layout_inline']°
+    ÊÌı—Ã⁄ »œ«∆· «› —«÷Ì… ≈‰ ·„  ÊÃœ.
     """
     li = data.get("layout_inline") or {}
 
-
-    # 1) Drawing plan: flow > layout
+    # 1) Drawing plan: ‰”ÿ¯Õ flow ≈·Ï ﬁ«∆„… »·Êﬂ«  («·„Õ—ﬂ «· ﬁ·ÌœÌ)
     plan: List[Dict[str, Any]] = []
     flow = li.get("flow") or []
     if flow:
@@ -327,15 +304,9 @@ def _resolve_layout_columns_page_from_inline(data: Dict[str, Any]):
 
 def _columns_from_percentages(cols_def: List[Dict[str, Any]]) -> Dict[str, Tuple[float, float]]:
     """
-    Converts definitions like:
-        [{"id": "left", "width": "33%"}, {"id": "right", "width": "67%"}]
-    into a dictionary: {id: (x, w)} with point units based on page margins.
-
-    Args:
-        cols_def (List[Dict[str, Any]]): List of column definitions with width in percent.
-
-    Returns:
-        Dict[str, Tuple[float, float]]: Mapping of column IDs to (x, width) in points.
+    ÌÕÊ¯·  ⁄—Ì› √⁄„œ… „À·:
+      [{"id": "left", "width": "33%"}, {"id": "right", "width": "67%"}]
+    ≈·Ï {id: (x, w)} »«·‰ﬁ«ÿ° „⁄ „—«⁄«… «·ÂÊ«„‘.
     """
     total_w = PAGE_W - LEFT_MARGIN - RIGHT_MARGIN
     x_cursor = LEFT_MARGIN
@@ -363,10 +334,7 @@ def _columns_from_percentages(cols_def: List[Dict[str, Any]]) -> Dict[str, Tuple
 
 def _apply_page_defaults(page_conf: Dict[str, Any]) -> None:
     """
-    Apply default values to the page configuration if not already set.
-
-    Args:
-        page_conf (Dict[str, Any]): Page configuration dictionary to modify.
+    Ì„·√ «·ﬁÌ„ «·«› —«÷Ì… ·≈⁄œ«œ«  «·’›Õ… ≈‰ ·„  ﬂ‰ „ÊÃÊœ….
     """
     if page_conf is None:
         page_conf = {}
@@ -378,13 +346,7 @@ def _apply_page_defaults(page_conf: Dict[str, Any]) -> None:
 
 def _resolve_page_size(page_conf: Optional[Dict[str, Any]]):
     """
-    Resolve the page size tuple based on the given configuration.
-
-    Args:
-        page_conf (Optional[Dict[str, Any]]): Page configuration dictionary.
-
-    Returns:
-        Tuple[float, float]: Width and height of the page.
+    ÌÕ·¯ ÕÃ„ «·’›Õ… Ê›ﬁ «·≈⁄œ«œ« .
     """
     if not page_conf:
         return A4
@@ -398,15 +360,7 @@ def _resolve_page_size(page_conf: Optional[Dict[str, Any]]):
 
 def _get_margin(page_conf: Optional[Dict[str, Any]], side: str, *, default_px: float) -> float:
     """
-    Retrieve the margin value (in points) for a given side.
-
-    Args:
-        page_conf (Optional[Dict[str, Any]]): Page configuration dictionary.
-        side (str): Margin side ('top', 'right', 'bottom', or 'left').
-        default_px (float): Default margin value in points.
-
-    Returns:
-        float: Margin value in points.
+    Ì⁄Ìœ ÂÊ«„‘ «·’›Õ… (»«·‰ﬁ«ÿ) Õ”» «·≈⁄œ«œ« .
     """
     if not page_conf:
         return default_px
@@ -416,17 +370,14 @@ def _get_margin(page_conf: Optional[Dict[str, Any]], side: str, *, default_px: f
         return float(val) * mm if val is not None else default_px
     except Exception:
         return default_px
-    
+
 
 # ============================================================
 #                        FALLBACKS
 # ============================================================
 def _fallback_layout() -> List[Dict[str, Any]]:
     """
-    Provides a basic fallback layout plan when no layout JSON is provided.
-
-    Returns:
-        List[Dict[str, Any]]: A list of layout block configurations.
+    „Œÿÿ «› —«÷Ì »”Ìÿ ⁄‰œ €Ì«» √Ì Layout.
     """
     return [
         {
@@ -448,12 +399,10 @@ def _fallback_layout() -> List[Dict[str, Any]]:
         },
     ]
 
+
 def _fallback_columns() -> Dict[str, Tuple[float, float]]:
     """
-    Provides default left/right column widths for blocks relying on columns.
-
-    Returns:
-        Dict[str, Tuple[float, float]]: A dictionary mapping column IDs to (x, width).
+    √⁄„œ… «› —«÷Ì… (Ì”«—/Ì„Ì‰) „⁄ „”«›… ›«’·… ’€Ì—….
     """
     total_w = PAGE_W - LEFT_MARGIN - RIGHT_MARGIN
     left_w = total_w * 0.4

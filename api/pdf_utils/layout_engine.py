@@ -1,4 +1,4 @@
-﻿# api/pdf_utils/layout_engine.py
+# api/pdf_utils/layout_engine.py
 from __future__ import annotations
 
 import argparse
@@ -151,3 +151,4 @@ def main(argv: list[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
+

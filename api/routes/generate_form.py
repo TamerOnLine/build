@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import traceback
@@ -256,4 +256,5 @@ def healthz():
         "themes_dir": str(THEMES_DIR),
         "layouts_dir": str(LAYOUTS_DIR),
     }
+
 

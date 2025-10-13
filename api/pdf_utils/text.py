@@ -1,4 +1,4 @@
-﻿# api/pdf_utils/text.py
+# api/pdf_utils/text.py
 """
 Shim layer to keep old blocks working.
 Provides wrap_text / draw_paragraph / draw_par aliases + helpers.
@@ -114,4 +114,5 @@ __all__ = [
     "deep_update",
     "hex_color",
 ]
+
 

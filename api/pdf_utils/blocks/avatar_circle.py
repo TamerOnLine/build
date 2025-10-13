@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from io import BytesIO
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
@@ -10,10 +10,10 @@ class AvatarCircleBlock:
     BLOCK_ID = "avatar_circle"
 
     def render(self, c, frame: Frame, data: dict, ctx: RenderContext) -> float:
-        # data: { "photo_bytes": bytes, "max_d_mm"?: float (ط§ظپطھط±ط§ط¶ظٹ 42) }
+        # data: { "photo_bytes": bytes, "max_d_mm"?: float (افتراضي 42) }
         photo_bytes = data.get("photo_bytes")
         if not photo_bytes:
-            return frame.y  # ظ„ط§ ط´ظٹط،
+            return frame.y  # لا شيء
 
         max_d = float(data.get("max_d_mm", 42)) * mm
         d = min(frame.w, max_d)
@@ -40,4 +40,5 @@ class AvatarCircleBlock:
             return frame.y
 
 register(AvatarCircleBlock())
+
 

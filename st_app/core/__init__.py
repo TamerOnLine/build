@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import base64
 import json
 from pathlib import Path
@@ -42,4 +42,5 @@ def encode_photo_to_b64(photo_bytes: Optional[bytes], photo_mime: Optional[str],
 
 def decode_photo_from_b64(photo_b64: str) -> bytes:
     return base64.b64decode(photo_b64.encode("ascii"))
+
 

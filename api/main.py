@@ -1,66 +1,63 @@
-﻿# main.py
+# api/main.py
 from __future__ import annotations
-
-import os
-from pathlib import Path
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-# ============================
-# إعدادات المسارات
-# ============================
-# مجلد الحفظ الافتراضي: جذر المشروع /profiles
-PROFILES_DIR = Path(os.getenv("PROFILES_DIR", str(Path.cwd() / "profiles"))).resolve()
-PUBLIC_PROFILES_MOUNT = os.getenv("PUBLIC_PROFILES_MOUNT", "/profiles")
+from api.errors import register_exception_handlers
+from api.settings import get_settings
+from api.routes import profiles as profiles_routes
+from api.routes import generate_form as gen_routes
+from api.routes import meta as meta_routes
 
-PROFILES_DIR.mkdir(parents=True, exist_ok=True)
+settings = get_settings()
 
-# ============================
-# تطبيق FastAPI
-# ============================
-app = FastAPI(title="Resume Builder API", version="1.0.0")
+API_BASE = f"{settings.api_prefix}/{settings.api_version}"
 
-# CORS (عدّل origins حسب واجهتك)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8501",
-        "http://127.0.0.1:8501",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "*",  # للتطوير فقط
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+app = FastAPI(
+    title=settings.app_title,
+    version=settings.app_version,
+    openapi_url=f"{settings.api_prefix}/openapi.json",
+    docs_url=f"{settings.api_prefix}/docs",
+    redoc_url=f"{settings.api_prefix}/redoc",
 )
 
-# ============================
-# تقديم ملفات مجلد الحفظ
-# ============================
-# أي صورة محفوظة كـ profiles/<name>.png ستظهر على:
-# http://localhost:8000/profiles/<name>.png
-app.mount(PUBLIC_PROFILES_MOUNT, StaticFiles(directory=str(PROFILES_DIR)), name="profiles")
+# CORS („‰ «·≈⁄œ«œ«  «·ÃœÌœ…)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_allow_origins,
+    allow_credentials=settings.cors_allow_credentials,
+    allow_methods=settings.cors_allow_methods,
+    allow_headers=settings.cors_allow_headers,
+)
 
-# ============================
-# الراوترات
-# ============================
-# اختر الاستيراد المناسب لمسار مشروعك:
-from api.routes import profiles as profiles_routes  # إذا كان المسار api/routes/profiles.py
-# من الممكن أن يكون: from build.api.routes import profiles as profiles_routes
+# ‰‘— „·›«  profiles/
+app.mount(
+    settings.public_profiles_mount,
+    StaticFiles(directory=str(settings.profiles_dir)),
+    name="profiles",
+)
 
-app.include_router(profiles_routes.router, prefix="/api")
+# «·—«Ê —« 
+app.include_router(profiles_routes.router, prefix=API_BASE, tags=["profiles"])
+app.include_router(gen_routes.router,      prefix=API_BASE, tags=["forms"])
+app.include_router(meta_routes.router,     prefix=API_BASE, tags=["meta"])
 
-# ============================
-# صحّة الخدمة
-# ============================
+# „⁄«·Ã«  «·√Œÿ«¡
+register_exception_handlers(app)
+
+# ’Õ¯… «·Œœ„…
+@app.get("/healthz")
+def healthz():
+    return {"ok": True, "status": "healthy"}
+
 @app.get("/")
 def root():
     return {
         "ok": True,
         "message": "API is running",
-        "profiles_dir": str(PROFILES_DIR),
-        "public_mount": PUBLIC_PROFILES_MOUNT,
+        "profiles_dir": str(settings.profiles_dir),
+        "public_mount": settings.public_profiles_mount,
+        "api_base": API_BASE,
     }
+

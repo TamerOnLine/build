@@ -1,4 +1,4 @@
-﻿"""PDF resume builder (v1.4 + safe fonts).
+"""PDF resume builder (v1.4 + safe fonts).
 
 Generates resume PDFs using ReportLab with optional RTL/Arabic shaping.
 Adds dynamic font availability checks & safe fallbacks to avoid KeyError.
@@ -460,7 +460,7 @@ BLOCKS: Dict[str, Callable] = {
 
 # ========== Main Builder ==========
 
-# ✅ طبّع بيانات الـprofile قبل أي استخدام لها
+# ? ØÈøÚ ÈíÇäÇÊ ÇáÜprofile ÞÈá Ãí ÇÓÊÎÏÇã áåÇ
 try:
     from api.pdf_utils.schema import ensure_profile_schema  # optional but recommended
 except Exception:
@@ -554,7 +554,7 @@ def build_resume_pdf(*, data: Dict[str, Any]) -> bytes:
         cid = sec.get("column", "main")
         x, w = cols.get(cid, (left, usable_w))
 
-        # ✅ طَبّق التطبيع على blocks ثم تعامل مع left_panel_bg سواء كان نص أو dict
+        # ? ØóÈøÞ ÇáÊØÈíÚ Úáì blocks Ëã ÊÚÇãá ãÚ left_panel_bg ÓæÇÁ ßÇä äÕ Ãæ dict
         blocks = _normalize_blocks_list(sec.get("blocks") or [])
 
         def _is_left_bg(entry: Any) -> bool:
@@ -578,7 +578,7 @@ def build_resume_pdf(*, data: Dict[str, Any]) -> bytes:
         y = y_pos[cid]
         for b in blocks:
             ensure_space(cid, 80)
-            name, arg = _block_name_arg(b)  # ✅ آمن مع dict أو string
+            name, arg = _block_name_arg(b)  # ? Âãä ãÚ dict Ãæ string
             if not name:
                 continue
 
@@ -596,3 +596,4 @@ def build_resume_pdf(*, data: Dict[str, Any]) -> bytes:
     c.showPage()
     c.save()
     return buf.getvalue()
+

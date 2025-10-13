@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from typing import Any, Dict, List, Tuple, Optional
 
 # ---------- Utilities ----------
@@ -151,4 +151,5 @@ def map_profile_to_ready(
         ready["_rtl"] = bool(rtl_mode)
 
     return ready, warnings
+
 

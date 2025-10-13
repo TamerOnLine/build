@@ -25,3 +25,4 @@ def discover_blocks():
 if __name__ == "__main__":
     blocks = discover_blocks()
     print(json.dumps(blocks))
+

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, List, Optional, Tuple, Annotated
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator
@@ -188,4 +188,5 @@ class GenerateFormRequest(BaseModel):
             return v
         ui_lang = info.data.get("ui_lang", DEFAULT_UI)
         return ui_lang in RTL_LANGS
+
 

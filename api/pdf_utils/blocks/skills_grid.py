@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib import colors
 from reportlab.lib.units import mm
@@ -10,12 +10,12 @@ from .registry import register
 class SkillsGrid:
     BLOCK_ID = "skills_grid"
     """
-    ط´ط¨ظƒط© ظ…ظ‡ط§ط±ط§طھ ط¨ط³ظٹط·ط© (ظ‚ط§ط¦ظ…ط© ظ†ظ‚ط·ظٹط© ظ…ظˆط²ط¹ط© ط¹ظ„ظ‰ ط£ط¹ظ…ط¯ط©).
+    شبكة مهارات بسيطة (قائمة نقطية موزعة على أعمدة).
     data:
-      - items ط£ظˆ skills : list[str]
-      - columns         : 2/3 (ط§ظپطھط±ط§ط¶ظٹ 2)
-      - title           : ط¹ظ†ظˆط§ظ† ط§ط®طھظٹط§ط±ظٹ
-      - row_h_mm        : ط§ط±طھظپط§ط¹ ط§ظ„ط³ط·ط± (ط§ظپطھط±ط§ط¶ظٹ 6)
+      - items أو skills : list[str]
+      - columns         : 2/3 (افتراضي 2)
+      - title           : عنوان اختياري
+      - row_h_mm        : ارتفاع السطر (افتراضي 6)
     """
 
     def render(self, c: Canvas, frame: Frame, data: dict, ctx: RenderContext) -> float:
@@ -26,7 +26,7 @@ class SkillsGrid:
 
         cur_y = frame.y
 
-        # ط¹ظ†ظˆط§ظ† ط§ط®طھظٹط§ط±ظٹ
+        # عنوان اختياري
         if title:
             c.setFillColor(colors.black)
             c.setFont("Helvetica-Bold", 11)
@@ -47,11 +47,12 @@ class SkillsGrid:
                 if idx >= len(items):
                     break
                 cx = frame.x + cidx * col_w
-                c.drawString(cx, cur_y - 4 * mm, f"â€¢ {items[idx]}")
+                c.drawString(cx, cur_y - 4 * mm, f"• {items[idx]}")
                 idx += 1
             cur_y -= row_h
 
         return cur_y - (4 * mm)
 
 register(SkillsGrid())
+
 

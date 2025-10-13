@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import base64
@@ -8,7 +8,7 @@ import streamlit as st
 from core.paths import THEMES_DIR, LAYOUTS_DIR
 from core.schema import ensure_profile_schema
 from core.io_utils import list_json_names
-from core import api_client as api  # عميل الـ API
+from core import api_client as api  # ⁄„Ì· «·‹ API
 
 from st_app.config.ui_defaults import (
     DEFAULT_API_BASE,
@@ -42,8 +42,8 @@ def _s(x) -> str:
 
 def _ss_get_multi(prefix: str, rev: int) -> str:
     """
-    يحاول قراءة قيمة من session_state لعدة إصدارات:
-    rev الحالي ثم السابق. (يمكن إضافة -2 إذا رغبت)
+    ÌÕ«Ê· ﬁ—«¡… ﬁÌ„… „‰ session_state ·⁄œ… ≈’œ«—« :
+    rev «·Õ«·Ì À„ «·”«»ﬁ. (Ì„ﬂ‰ ≈÷«›… -2 ≈–« —€» )
     """
     for r in (rev, rev - 1):
         if r is not None and r >= 0:
@@ -70,15 +70,15 @@ def _norm_phone(p: str) -> str:
 
 def collect_latest_profile(profile: dict) -> dict:
     """
-    يجمع أحدث القيم من التبويبات مرة واحدة.
-    يقرأ من rev الحالي والسابق لتفادي مشكلة تبدّل المفاتيح بعد رفع rev داخل التبويبات،
-    ويستعين بالمفاتيح الثابتة (name/title) كخطة أمان، ثم بما في profile.
+    ÌÃ„⁄ √ÕœÀ «·ﬁÌ„ „‰ «· »ÊÌ»«  „—… Ê«Õœ….
+    Ìﬁ—√ „‰ rev «·Õ«·Ì Ê«·”«»ﬁ · ›«œÌ „‘ﬂ·…  »œ¯· «·„›« ÌÕ »⁄œ —›⁄ rev œ«Œ· «· »ÊÌ»« °
+    ÊÌ” ⁄Ì‰ »«·„›« ÌÕ «·À«» … (name/title) ﬂŒÿ… √„«‰° À„ »„« ›Ì profile.
     """
     rev = st.session_state.get("profile_rev", 0)
     profile = ensure_profile_schema(profile or {})
 
     # --- Basic (header) ---
-    # جرّب rev الحالي/السابق، ثم المفاتيح الثابتة، ثم الموجود في profile
+    # Ã—¯» rev «·Õ«·Ì/«·”«»ﬁ° À„ «·„›« ÌÕ «·À«» …° À„ «·„ÊÃÊœ ›Ì profile
     def _ss_get_name_title() -> tuple[str, str]:
         for r in (rev, rev - 1):
             if r is not None and r >= 0:
@@ -86,7 +86,7 @@ def collect_latest_profile(profile: dict) -> dict:
                 tt = st.session_state.get(f"title_{r}")
                 if nm or tt:
                     return (_s(nm), _s(tt))
-        # المفاتيح الثابتة (تثبّت داخل tab_basic بعد الحفظ)
+        # «·„›« ÌÕ «·À«» … ( À»¯  œ«Œ· tab_basic »⁄œ «·Õ›Ÿ)
         nm = st.session_state.get("name")
         tt = st.session_state.get("title")
         return (_s(nm), _s(tt))
@@ -153,7 +153,7 @@ def collect_latest_profile(profile: dict) -> dict:
     projects = []
     i = 0
     while True:
-        # تحقق من وجود صف بأي rev (الحالي أو السابق)
+        #  Õﬁﬁ „‰ ÊÃÊœ ’› »√Ì rev («·Õ«·Ì √Ê «·”«»ﬁ)
         has_any = any(
             f in st.session_state
             for f in (f"proj_title_{rev}_{i}", f"proj_desc_{rev}_{i}", f"proj_url_{rev}_{i}",
@@ -208,14 +208,14 @@ def collect_latest_profile(profile: dict) -> dict:
         profile.pop("education", None)
 
     # --- Photo / Avatar ---
-    # تبويب الصورة يضع avatar_b64 في الـ session
+    #  »ÊÌ» «·’Ê—… Ì÷⁄ avatar_b64 ›Ì «·‹ session
     if st.session_state.get("avatar_b64"):
         profile["avatar_b64"] = st.session_state["avatar_b64"]
-    # لو في photo_bytes من المعالج، خزّنه كـ photo_b64
+    # ·Ê ›Ì photo_bytes „‰ «·„⁄«·Ã° Œ“¯‰Â ﬂ‹ photo_b64
     if st.session_state.get("photo_bytes"):
         profile["photo_b64"] = base64.b64encode(st.session_state["photo_bytes"]).decode("ascii")
 
-    # تنظيم نهائي
+    #  ‰ŸÌ„ ‰Â«∆Ì
     profile = ensure_profile_schema(profile)
     return profile
 
@@ -244,7 +244,7 @@ def render_sidebar() -> dict:
             ["(none)"] + layout_files,
             index=1 if layout_files else 0,
             key="layout_file",
-            help="اختر ملف لايـاوت من /layouts.",
+            help="«Œ — „·› ·«Ì‹«Ê  „‰ /layouts.",
         )
 
         st.markdown("---")
@@ -285,7 +285,7 @@ def render_sidebar() -> dict:
             if st.button("Save Profile", key="btn_save_profile_api"):
                 try:
                     name = _clean_name(profile_name_in)
-                    # ✅ اجمع أحدث القيم من الواجهة مباشرة (rev و rev-1 والمفاتيح الثابتة)
+                    # ? «Ã„⁄ √ÕœÀ «·ﬁÌ„ „‰ «·Ê«ÃÂ… „»«‘—… (rev Ê rev-1 Ê«·„›« ÌÕ «·À«» …)
                     current = st.session_state.get("profile", {})
                     payload = collect_latest_profile(ensure_profile_schema(current))
                     api.save_profile(name, payload)
@@ -328,3 +328,4 @@ def render_sidebar() -> dict:
         "theme_name": theme_name,
         "layout_file": layout_file,
     }
+

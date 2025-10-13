@@ -1,4 +1,4 @@
-﻿CANONICAL_BLOCKS = {
+CANONICAL_BLOCKS = {
     # Update this list to reflect actual blocks registered in your system
     "header_name", "projects", "education", "contact_info",
     "languages", "key_skills", "social_links", "avatar_circle",
@@ -30,4 +30,5 @@ def canonicalize(block_id: str) -> str:
     """
     bid = block_id.strip()
     return ALIASES.get(bid, bid)
+
 

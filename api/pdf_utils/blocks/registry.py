@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from typing import Dict, Any
 
 # Global dictionary to store registered blocks
@@ -53,4 +53,5 @@ def list_registered() -> list[str]:
         list[str]: Sorted list of registered block identifiers.
     """
     return sorted(_BLOCKS.keys())
+
 

@@ -1,30 +1,45 @@
-﻿# api/routes/profiles.py
+# api/routes/profiles.py
 from __future__ import annotations
+
+import base64
+import json
+import os
+import re
+import shutil
 from pathlib import Path
-import os, json, re, base64, shutil
 from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, EmailStr, Field, field_validator
+
 from api.models.profile import Profile
 
-# ============================
-# إعداد المسارات (قابلة للتغيير)
-# ============================
-PROFILES_DIR = Path(
-    os.getenv("PROFILES_DIR", str(Path.cwd() / "profiles"))
-).resolve()
+# Profile storage configuration
+PROFILES_DIR = Path(os.getenv("PROFILES_DIR", str(Path.cwd() / "profiles"))).resolve()
 PROFILES_DIR.mkdir(parents=True, exist_ok=True)
 PUBLIC_PROFILES_MOUNT = os.getenv("PUBLIC_PROFILES_MOUNT", "/profiles").rstrip("/")
 
-def _profile_dir(name: str) -> Path: return PROFILES_DIR / name
-def _json_path(name: str) -> Path: return _profile_dir(name) / "profile.json"
-def _png_path(name: str) -> Path: return _profile_dir(name) / "avatar.png"
-def _public_avatar_url(name: str) -> str: return f"{PUBLIC_PROFILES_MOUNT}/{name}/avatar.png"
 
-# ============================
-# التحقق من الاسم
-# ============================
+def _profile_dir(name: str) -> Path:
+    return PROFILES_DIR / name
+
+
+def _json_path(name: str) -> Path:
+    return _profile_dir(name) / "profile.json"
+
+
+def _png_path(name: str) -> Path:
+    return _profile_dir(name) / "avatar.png"
+
+
+def _public_avatar_url(name: str) -> str:
+    return f"{PUBLIC_PROFILES_MOUNT}/{name}/avatar.png"
+
+
+# Name validation regex
 _NAME_RE = re.compile(r"^[\w\-\.\u0600-\u06FF ]{1,100}$")
+
+
 def _validate_name(name: str) -> str:
     if not isinstance(name, str) or not _NAME_RE.match(name):
         raise HTTPException(status_code=400, detail="Invalid profile name.")
@@ -32,12 +47,15 @@ def _validate_name(name: str) -> str:
         raise HTTPException(status_code=400, detail="Invalid profile name.")
     return name
 
+
 # ============================
-# النماذج الكائنية
+# Profile Schema Definitions
 # ============================
+
 class Header(BaseModel):
     name: str = Field("", max_length=120)
     title: str = Field("", max_length=160)
+
 
 class Contact(BaseModel):
     email: Optional[EmailStr] = None
@@ -47,10 +65,12 @@ class Contact(BaseModel):
     linkedin: Optional[str] = None
     location: Optional[str] = None
 
+
 class Project(BaseModel):
     title: str = ""
     desc: str = ""
     url: Optional[str] = None
+
 
 class Education(BaseModel):
     title: str = ""
@@ -59,6 +79,7 @@ class Education(BaseModel):
     end: str = ""
     details: str = ""
     url: Optional[str] = None
+
 
 class Profile(BaseModel):
     header: Header = Header()
@@ -72,7 +93,6 @@ class Profile(BaseModel):
     photo_b64: Optional[str] = None
     avatar_b64: Optional[str] = None
 
-    # ===== توافق خلفي مع الصيغة القديمة list[list[str]] =====
     @field_validator("projects", mode="before")
     @classmethod
     def _coerce_projects(cls, v):
@@ -92,19 +112,22 @@ class Profile(BaseModel):
             for row in v:
                 t, s, a, e, d, u = (row + ["", "", "", "", "", None])[:6]
                 out.append({
-                    "title": t or "", "school": s or "", "start": a or "", "end": e or "",
-                    "details": d or "", "url": u or None
+                    "title": t or "", "school": s or "", "start": a or "",
+                    "end": e or "", "details": d or "", "url": u or None
                 })
             return out
         return v
+
 
 class SaveProfileRequest(BaseModel):
     name: str
     profile: Profile
 
+
 # ============================
-# أدوات الصورة
+# Helper Functions
 # ============================
+
 def _strip_data_url_prefix(b64: str) -> str:
     if not b64:
         return b64
@@ -112,6 +135,7 @@ def _strip_data_url_prefix(b64: str) -> str:
     if b64.lower().startswith("data:image"):
         return b64.split(",", 1)[1]
     return b64
+
 
 def _save_png_from_b64(name: str, b64: Optional[str]) -> Optional[str]:
     if not b64:
@@ -126,34 +150,30 @@ def _save_png_from_b64(name: str, b64: Optional[str]) -> Optional[str]:
     _png_path(name).write_bytes(img_bytes)
     return _public_avatar_url(name)
 
+
 # ============================
-# الراوتر
+# API Routes
 # ============================
+
 router = APIRouter(prefix="/profiles", tags=["profiles"])
+
 
 @router.post("/save")
 def save_profile(payload: SaveProfileRequest):
     """
-    يحفظ البروفايل داخل:
-      profiles/<name>/profile.json
-      profiles/<name>/avatar.png
+    Save profile data and avatar image to the filesystem.
     """
     name = _validate_name(payload.name)
-
-    # 1) اجلب كل الحقول بدون استبعاد None
     data = payload.profile.model_dump(exclude_none=False)
 
-    # 2) contact: ضَمَن المفاتيح دائماً
     contact = data.get("contact") or {}
     for k in ("email", "phone", "website", "github", "linkedin", "location"):
         contact.setdefault(k, None)
     data["contact"] = contact
 
-    # 3) احفظ الصورة إن وُجدت (كما هو)
     photo_b64 = data.pop("photo_b64", None) or data.pop("avatar_b64", None)
     new_avatar_url = _save_png_from_b64(name, photo_b64)
 
-    # 4) ثبّت avatar_url (كما هو)
     jp = _json_path(name)
     existing_avatar_url = ""
     if jp.exists():
@@ -162,9 +182,8 @@ def save_profile(payload: SaveProfileRequest):
             existing_avatar_url = str(existing.get("avatar_url") or "")
         except Exception:
             existing_avatar_url = ""
-    data["avatar_url"] = new_avatar_url or existing_avatar_url or _public_avatar_url(name)
 
-    # 5) احفظ JSON النهائي (سيحتوي contact بالمفاتيح كلها)
+    data["avatar_url"] = new_avatar_url or existing_avatar_url or _public_avatar_url(name)
     jp.parent.mkdir(parents=True, exist_ok=True)
     jp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -173,18 +192,29 @@ def save_profile(payload: SaveProfileRequest):
 
 @router.get("/get")
 def get_profile(name: str = Query(...)):
+    """
+    Retrieve a saved profile by name.
+    """
     name = _validate_name(name)
     jp = _json_path(name)
     if not jp.exists():
         raise HTTPException(status_code=404, detail="Profile not found.")
     return {"name": name, "profile": json.loads(jp.read_text(encoding="utf-8"))}
 
+
 @router.get("/load")
 def load_profile(name: str = Query(...)):
+    """
+    Alias for get_profile to support alternative route naming.
+    """
     return get_profile(name)
+
 
 @router.get("/list", response_model=list[str])
 def list_profiles() -> list[str]:
+    """
+    List all saved profile names.
+    """
     if not PROFILES_DIR.exists():
         return []
     names: list[str] = []
@@ -193,8 +223,12 @@ def list_profiles() -> list[str]:
             names.append(p.name)
     return sorted(names)
 
+
 @router.delete("/delete")
 def delete_profile(name: str = Query(...)):
+    """
+    Delete a saved profile and its directory.
+    """
     name = _validate_name(name)
     d = _profile_dir(name)
     if not d.exists():

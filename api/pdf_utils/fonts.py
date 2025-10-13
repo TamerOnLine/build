@@ -1,4 +1,4 @@
-﻿# api/pdf_utils/fonts.py
+# api/pdf_utils/fonts.py
 """
 Dynamic Font Loader for ReportLab
 Automatically scans /assets for .ttf fonts,
@@ -57,7 +57,7 @@ def _register_font_family(name: str, paths: dict):
         if name + "-Bold" in REGISTERED:
             addMapping(name, 0, 1, name + "-Bold")
 
-        print(f"✅ Registered: {name}")
+        print(f"? Registered: {name}")
     except Exception as e:
         print(f"Failed to register {name}: {e}")
 
@@ -90,7 +90,8 @@ def rtl(text: str) -> str:
 
 from reportlab.pdfbase import pdfmetrics
 
-print("ًRegistered font names:")
+print("ðRegistered font names:")
 for f in pdfmetrics.getRegisteredFontNames():
     print("   -", f)
+
 

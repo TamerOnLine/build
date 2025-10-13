@@ -1,4 +1,4 @@
-﻿from reportlab.pdfgen.canvas import Canvas
+from reportlab.pdfgen.canvas import Canvas
 from .base import Frame, RenderContext
 from .registry import register
 
@@ -47,4 +47,5 @@ class ProjectsBlock:
 
 # Register the block in the system registry
 register(ProjectsBlock())
+
 

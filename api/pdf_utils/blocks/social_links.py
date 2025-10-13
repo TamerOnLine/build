@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 from reportlab.pdfbase import pdfmetrics
 from reportlab.lib import colors
@@ -12,17 +12,17 @@ from ..labels import t
 from ..config import UI_LANG
 from ..icons import get_section_icon, draw_heading_with_icon, ICON_PATHS
 from ..text import wrap_text
-from .. import social  # ظ†ط³طھط®ط¯ظ… ط£ط¯ظˆط§طھ ط§ظ„طھظ†ط¸ظٹظپ/ط§ظ„ط¨ظ†ط§ط، ظ…ظ† social.py ظ„ظˆ ظ…طھط§ط­ط©
+from .. import social  # نستخدم أدوات التنظيف/البناء من social.py لو متاحة
 from .base import Frame, RenderContext
 from .registry import register
 
 class SocialLinksBlock:
     """
-    طھط¹ط±ط¶ ط±ظˆط§ط¨ط· ط§ط¬طھظ…ط§ط¹ظٹط© ط¨طµظٹط؛ط© ظ…ط±طھط¨ط© ظ…ط¹ ط£ظٹظ‚ظˆظ†ط§طھ + ط±ظˆط§ط¨ط· ظ‚ط§ط¨ظ„ط© ظ„ظ„ظ†ظ‚ط±.
-    data طھط¯ط¹ظ… ط´ظƒظ„ظٹظ†:
+    تعرض روابط اجتماعية بصيغة مرتبة مع أيقونات + روابط قابلة للنقر.
+    data تدعم شكلين:
       A) {"items": [{"label":"GitHub","value":"TamerOnLine"}, {"label":"LinkedIn","value":"tameronline"}, ...]}
-      B) {"github":"TamerOnLine","linkedin":"tameronline","website":"https://..."}  (ط³ظٹظڈط­ظˆظ‘ظژظ„ ط¯ط§ط®ظ„ظٹظ‹ط§ ط¥ظ„ظ‰ items)
-    ظٹظ…ظƒظ† طھظ…ط±ظٹط± title ط§ط®طھظٹط§ط±ظٹظ‹ط§.
+      B) {"github":"TamerOnLine","linkedin":"tameronline","website":"https://..."}  (سيُحوَّل داخليًا إلى items)
+    يمكن تمرير title اختياريًا.
     """
     BLOCK_ID = "social_links"
 
@@ -39,12 +39,12 @@ class SocialLinksBlock:
                 url = self._build_url(label, value)
                 triples.append((label, value, url))
         else:
-            # ط´ظƒظ„ ط§ظ„ظ…ظپط§طھظٹط­ ط§ظ„ظ…ط¨ط§ط´ط±ط© (github/linkedin/website/twitterâ€¦)
+            # شكل المفاتيح المباشرة (github/linkedin/website/twitter…)
             for label in ["Website","GitHub","LinkedIn","Twitter","X","YouTube","Facebook","Instagram"]:
                 key = label.lower()
                 val = data.get(key)
                 if not val:
-                    # ط¯ط¹ظ… ط­ط§ظ„ط§طھ ط§ظ„طھط³ظ…ظٹط© ط§ظ„ط´ط§ط¦ط¹ط©
+                    # دعم حالات التسمية الشائعة
                     if label == "Website":
                         val = data.get("site") or data.get("url")
                     if label in ("Twitter","X"):
@@ -59,9 +59,9 @@ class SocialLinksBlock:
         return triples
 
     def _build_url(self, label: str, value: str) -> str:
-        """ظٹط¨ظ†ظٹ URL ظ†ظ‡ط§ط¦ظٹ ط¨ط§ط³طھط®ط¯ط§ظ… social.py ط¥ظ† ظˆط¬ط¯طŒ ظˆط¥ظ„ط§ ظ‚ظˆط§ط¹ط¯ ط¨ط³ظٹط·ط©."""
+        """يبني URL نهائي باستخدام social.py إن وجد، وإلا قواعد بسيطة."""
         try:
-            # ظ„ظˆ social.py ط¹ظ†ط¯ظ‡ ط¯ظˆط§ظ„ ط¨ظ†ط§ط،طŒ ط¬ط±ظ‘ط¨ظ‡ط§
+            # لو social.py عنده دوال بناء، جرّبها
             if hasattr(social, "build_url"):
                 return social.build_url(label, value)
             if hasattr(social, "normalize_url"):
@@ -76,7 +76,7 @@ class SocialLinksBlock:
         if low == "github":
             return f"https://github.com/{v}"
         if low == "linkedin":
-            # ظٹظ‚ط¨ظ„ ط´ط®طµظٹ ط£ظˆ ط´ط±ظƒط©
+            # يقبل شخصي أو شركة
             if v.startswith("in/") or v.startswith("company/"):
                 return f"https://www.linkedin.com/{v}"
             return f"https://www.linkedin.com/in/{v}"
@@ -105,16 +105,16 @@ class SocialLinksBlock:
         c.setFillColor(colors.black)
 
         for (label, value, url) in triples:
-            # ط£ظٹظ‚ظˆظ†ط© ط¥ظ† ظˆط¬ط¯طھ
+            # أيقونة إن وجدت
             icon = ICON_PATHS.get(label.lower()) or ICON_PATHS.get(label)
             text = f"{label}: {value}"
 
-            # ط§ط±ط³ظ… ط§ظ„ظ†طµ
+            # ارسم النص
             c.drawString(frame.x, y, text)
 
-            # ظ„ظˆ ظپظٹ URLطŒ ط§ط¹ظ…ظ„ linkURL ط¹ظ„ظ‰ ط¬ط²ط، ط§ظ„ظ‚ظٹظ…ط©
+            # لو في URL، اعمل linkURL على جزء القيمة
             if url:
-                # ط­ط³ط§ط¨ ط¹ط±ط¶ "label: " ط¹ط´ط§ظ† ظ†ط±ط¨ط· ظ…ظ† ط¨ط¹ط¯ظ‡
+                # حساب عرض "label: " عشان نربط من بعده
                 prefix = f"{label}: "
                 fn = "Helvetica"
                 fs = LEFT_TEXT_SIZE
@@ -133,4 +133,5 @@ class SocialLinksBlock:
         return y
 
 register(SocialLinksBlock())
+
 

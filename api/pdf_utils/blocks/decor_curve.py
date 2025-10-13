@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib import colors
 from reportlab.lib.units import mm
@@ -55,4 +55,5 @@ class DecorCurveBlock:
 
 # Register the block in the system registry
 register(DecorCurveBlock())
+
 

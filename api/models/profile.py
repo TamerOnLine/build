@@ -1,4 +1,4 @@
-﻿# api/models/profile.py
+# api/models/profile.py
 from typing import List, Optional
 from pydantic import BaseModel, Field, EmailStr, field_validator
 
@@ -87,3 +87,4 @@ class Profile(BaseModel):
                 })
             return out
         return v
+

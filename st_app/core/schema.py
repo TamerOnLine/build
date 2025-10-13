@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import copy
 import json
 from typing import Any, Dict, List
@@ -95,8 +95,9 @@ def ensure_profile_schema(p: dict | None) -> dict:
     # summary
     base["summary"] = _normalize_summary(p.get("summary"))
 
-    # ✅ احتفظ بـ photo_b64 إن وُجد
+    # ? «Õ ›Ÿ »‹ photo_b64 ≈‰ ÊıÃœ
     if isinstance(p.get("photo_b64"), str):
         base["photo_b64"] = p["photo_b64"]
 
     return base
+

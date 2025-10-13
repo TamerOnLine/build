@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from reportlab.lib import colors
 from ..config import (
     LEFT_SEC_TITLE_TOP_GAP, LEFT_SEC_HEADING_SIZE, HEADING_COLOR,
@@ -39,4 +39,5 @@ class LanguagesBlock:
         return y
 
 register(LanguagesBlock())
+
 

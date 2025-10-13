@@ -140,3 +140,4 @@ def get_placeholders() -> dict:
         "languages_label": LANGUAGES_TEXTAREA_LABEL,
         "skills_label": SKILLS_TEXTAREA_LABEL,
     }
+

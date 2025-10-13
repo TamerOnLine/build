@@ -27,3 +27,4 @@ def test_save_get_delete_profile(client):
 
     r = client.delete("/api/profiles/delete", params={"name": "uu"})
     assert r.status_code == 200
+

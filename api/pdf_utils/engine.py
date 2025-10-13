@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Any, List, Optional, Tuple, Callable
 from reportlab.lib.units import mm
@@ -157,4 +157,5 @@ class LayoutEngine:
                     new_y = block.render(self.c, frame, block_data, ctx)
 
                 self.cursor.y_by_col[col_id] = new_y
+
 

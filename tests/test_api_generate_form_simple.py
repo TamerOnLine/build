@@ -78,3 +78,4 @@ def test_generate_pdf_with_minimal_blocks_returns_pdf(tmp_path):
     out = tmp_path / "api_print.pdf"
     out.write_bytes(res.content)
     assert out.exists() and out.stat().st_size > 1500
+

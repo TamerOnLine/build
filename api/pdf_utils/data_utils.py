@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -131,9 +131,9 @@ def build_ready_from_profile(profile: dict) -> Dict[str, Any]:
 
 
 
-# ─────────────────────────────────────────────────────────────
-# Adapter for new structured data → legacy text-based blocks
-# ─────────────────────────────────────────────────────────────
+# ?????????????????????????????????????????????????????????????
+# Adapter for new structured data ? legacy text-based blocks
+# ?????????????????????????????????????????????????????????????
 def _blocks_adapter(profile: dict) -> dict:
     """
     Convert structured project/education objects (dicts)
@@ -141,14 +141,14 @@ def _blocks_adapter(profile: dict) -> dict:
     """
     data = profile.copy()
 
-    # Projects: dict → strings
+    # Projects: dict ? strings
     if data.get("projects") and isinstance(data["projects"][0], dict):
         data["projects"] = [
             f'{p.get("title","")} — {p.get("desc","")}\n{p.get("url","")}'.strip()
             for p in data["projects"]
         ]
 
-    # Education: dict → paragraphs
+    # Education: dict ? paragraphs
     if data.get("education") and isinstance(data["education"][0], dict):
         out = []
         for e in data["education"]:
@@ -163,3 +163,4 @@ def _blocks_adapter(profile: dict) -> dict:
         data["education"] = out
 
     return data
+

@@ -1,78 +1,103 @@
-﻿from __future__ import annotations
-import os, json, requests, streamlit as st
+from __future__ import annotations
+import os
+import json
+import requests
+import streamlit as st
+from dotenv import load_dotenv
+load_dotenv()
 
-# ============================================================
-# إعداد عنوان الـ API
-# ============================================================
-DEFAULT_API_BASE = os.getenv("API_BASE", "http://127.0.0.1:8000/api")
-API_BASE = st.session_state.get("API_BASE", DEFAULT_API_BASE)
+# --------------------------------------------
+# Build API base from .env (host + prefix + version)
+# You can still override with:
+#   - st.session_state["API_BASE"]
+#   - or env var API_BASE
+# --------------------------------------------
+API_HOST   = os.getenv("API_HOST", "http://127.0.0.1:8000").rstrip("/")
+API_PREFIX = os.getenv("APP_API_PREFIX", "/api").strip("/")
+API_VER    = os.getenv("APP_API_VERSION", "v1").strip("/")
 
-# ============================================================
-# أدوات الاتصال بالـ API
-# ============================================================
+_env_api_base = os.getenv("API_BASE")  # optional override via env
+_ss_api_base  = st.session_state.get("API_BASE")  # optional override via session
+
+if _ss_api_base:
+    API_BASE = _ss_api_base.rstrip("/")
+elif _env_api_base:
+    API_BASE = _env_api_base.rstrip("/")
+else:
+    # Compose from HOST + /prefix + /version
+    API_BASE = f"{API_HOST}/{API_PREFIX}/{API_VER}".replace("//", "/")
+    # keep scheme slashes
+    if API_BASE.startswith("http:/") and not API_BASE.startswith("http://"):
+        API_BASE = API_BASE.replace("http:/", "http://", 1)
+    if API_BASE.startswith("https:/") and not API_BASE.startswith("https://"):
+        API_BASE = API_BASE.replace("https:/", "https://", 1)
+
+# ================================
+# HTTP helpers
+# ================================
+def _join(endpoint: str) -> str:
+    return f"{API_BASE.rstrip('/')}/{endpoint.lstrip('/')}"
+
 def api_post(endpoint: str, payload: dict) -> dict:
-    url = f"{API_BASE.rstrip('/')}/{endpoint.lstrip('/')}"
-    resp = requests.post(url, json=payload)
+    resp = requests.post(_join(endpoint), json=payload, timeout=60)
     resp.raise_for_status()
     return resp.json()
 
 def api_get(endpoint: str) -> dict:
-    url = f"{API_BASE.rstrip('/')}/{endpoint.lstrip('/')}"
-    resp = requests.get(url)
+    resp = requests.get(_join(endpoint), timeout=60)
     resp.raise_for_status()
     return resp.json()
 
-# ============================================================
-# دوال إضافية للثيم والتخطيط
-# ============================================================
+# ================================
+# Theme utils
+# ================================
 def normalize_theme_name(name: str) -> str:
     s = (name or "").strip().lower()
-    s = s.replace("_", "-").replace(" ", "-")
-    return s
+    return s.replace("_", "-").replace(" ", "-")
 
 def choose_layout_inline(layout_file: str) -> dict:
-    """اختيار أو تحميل تخطيط JSON (اختياري)"""
-    import json as _json
     if not layout_file:
         return {}
     try:
         if os.path.isfile(layout_file):
             with open(layout_file, "r", encoding="utf-8") as f:
-                return _json.load(f)
+                return json.load(f)
         return {}
     except Exception:
         return {}
 
 def inject_headshot_into_layout(layout: dict, photo_bytes: bytes | None) -> dict:
-    """حقن الصورة داخل التخطيط (اختياري)"""
     if not isinstance(layout, dict):
         return layout
     if photo_bytes:
         layout["headshot_injected"] = True
     return layout
 
-# ============================================================
-# توليد PDF
-# ============================================================
+# ================================
+# PDF generation
+# ================================
 def api_generate_pdf(payload: dict) -> bytes:
-    url = f"{API_BASE.rstrip('/')}/generate-form-simple"
-    resp = requests.post(url, json=payload)
+    # يضبط URL النهائي عبر API_BASE + endpoint
+    url = _join("generate-form-simple")
+    print("[api_client] POST", url)  # debug: يظهر في التيرمنال عند الضغط على Generate PDF
+    resp = requests.post(url, json=payload, timeout=60)
     resp.raise_for_status()
     return resp.content
 
-# ============================================================
-# حفظ البروفايل
-# ============================================================
+
+# ================================
+# Profiles
+# ================================
 def save_profile(profile_name: str, payload: dict) -> dict:
-    url = f"{API_BASE.rstrip('/')}/profiles/save"
+    url = _join("profiles/save")
     data = {"name": profile_name, "profile": payload}
-    resp = requests.post(url, json=data)
+    resp = requests.post(url, json=data, timeout=60)
     resp.raise_for_status()
     return resp.json()
 
-# ============================================================
-# تنظيف القيم قبل الحفظ
-# ============================================================
+# ================================
+# Payload shapers
+# ================================
 def _none_if_empty(x):
     x = (x or "").strip()
     return None if x == "" else x
@@ -94,9 +119,6 @@ def _coerce_str_list(v):
         return out
     return []
 
-# ============================================================
-# بناء الحمولة قبل الحفظ
-# ============================================================
 def build_profile_payload(profile: dict) -> dict:
     contact = profile.get("contact") or {}
     clean_contact = {
@@ -119,9 +141,6 @@ def build_profile_payload(profile: dict) -> dict:
         "avatar":    profile.get("avatar") or None,
     }
 
-# ============================================================
-# توليد حمولة PDF
-# ============================================================
 def build_payload(profile: dict) -> dict:
     return {
         "header": profile.get("header") or {},
@@ -134,9 +153,6 @@ def build_payload(profile: dict) -> dict:
         "avatar": profile.get("avatar") or None,
     }
 
-# ============================================================
-# Debug
-# ============================================================
 if __name__ == "__main__":
     example = {
         "header": {"name": "Tamer", "title": "Software Developer"},

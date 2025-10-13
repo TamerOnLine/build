@@ -83,3 +83,4 @@ def validate_profile_keys(profile: Dict[str, Any]) -> List[str]:
     """Return a list of missing top-level keys in the profile."""
     required = ["header", "contact", "skills", "languages", "projects", "education"]
     return [k for k in required if k not in profile]
+
