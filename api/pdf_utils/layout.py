@@ -27,58 +27,36 @@ def compute_columns(layout: Dict[str, Any]) -> Dict[str, Any]:
     page = layout.get("page", {})
     size = page.get("size", "A4")
     orient = page.get("orientation", "portrait")
-    margin = page.get("margin_mm", {"top": 15, "right": 12, "bottom": 15, "left": 12})
+    margin = page.get("margin_mm", {"top": 22, "right": 18, "bottom": 18, "left": 18})
     gutter_mm = float(page.get("gutter_mm", 6))
 
     page_w, page_h = _page_size_points(size, orient)
-    m_top = margin.get("top", 15) * mm
-    m_right = margin.get("right", 12) * mm
-    m_bottom = margin.get("bottom", 15) * mm
-    m_left = margin.get("left", 12) * mm
-    gutter = gutter_mm * mm
+    m_top = margin.get("top", 22) * mm
+    m_right = margin.get("right", 18) * mm
+    m_bottom = margin.get("bottom", 18) * mm
+    m_left = margin.get("left", 18) * mm
 
     content_w = page_w - m_left - m_right
     content_h = page_h - m_top - m_bottom
 
-    cols = layout.get("columns", [])
-    n = len(cols)
-    fixed_total = 0.0
-    pct_cols: List[int] = []
-    widths = [0.0] * n
-    for i, c in enumerate(cols):
-        w = str(c.get("width", f"{100/n}%"))
-        if w.endswith("%"):
-            pct_cols.append(i)
-        else:
-            widths[i] = _parse_pct_or_abs(w, content_w)
-            fixed_total += widths[i]
-
-    remaining_w = content_w - fixed_total - gutter * (n - 1 if n > 1 else 0)
-    if pct_cols:
-        pct_sum = sum(float(cols[i]["width"][:-1]) for i in pct_cols)
-        for i in pct_cols:
-            p = float(cols[i]["width"][:-1])
-            widths[i] = (p / pct_sum) * remaining_w
-
-    x_positions = []
-    cur_x = m_left
-    for i in range(n):
-        x_positions.append(cur_x)
-        cur_x += widths[i] + (gutter if i < n - 1 else 0)
+    cols_def: List[Dict[str, Any]] = layout.get("columns", []) or [{"id": "main", "width": "100%"}]
+    columns: List[Dict[str, Any]] = []
+    x_cursor = m_left
+    for c in cols_def:
+        cid = c.get("id") or f"col_{len(columns)+1}"
+        w = c.get("w")
+        x = c.get("x")
+        width = float(w) if w is not None else _parse_pct_or_abs(c.get("width", "100%"), content_w)
+        columns.append({"id": cid, "x": float(x) if x is not None else x_cursor, "y": page_h - m_top, "w": width})
+        x_cursor += width + gutter_mm * mm
 
     return {
-        "page_w": page_w, "page_h": page_h,
-        "margins": (m_left, m_top, m_right, m_bottom),
-        "gutter": gutter,
-        "columns": [
-            {
-                "id": cols[i].get("id", f"col{i}"),
-                "x": x_positions[i],
-                "y": page_h - m_top,
-                "w": widths[i],
-                "h": content_h
-            } for i in range(n)
-        ]
+        "page_w": page_w,
+        "page_h": page_h,
+        "margins": (m_top, m_right, m_bottom, m_left),
+        "columns": columns,
+        "content_w": content_w,
+        "content_h": content_h,
     }
 
 def render_with_layout(c: Canvas, layout: Dict[str, Any], data_map: Dict[str, Any], ui_lang: str | None = None):
@@ -94,7 +72,7 @@ def render_with_layout(c: Canvas, layout: Dict[str, Any], data_map: Dict[str, An
     }
 
     for group in flow:
-        col_id = group["column"]
+        col_id = group.get("column", "main")
         col = next((co for co in geom["columns"] if co["id"] == col_id), None)
         if not col:
             continue
@@ -107,5 +85,3 @@ def render_with_layout(c: Canvas, layout: Dict[str, Any], data_map: Dict[str, An
             merged = {**base_data, **ov}
             new_y = block.render(c, frame, merged, ctx)
             frame = Frame(x=frame.x, y=new_y, w=frame.w)
-
-

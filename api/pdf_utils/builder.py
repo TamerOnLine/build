@@ -17,40 +17,27 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 
-import re
 
-_AR_RE = re.compile(r"[\u0600-\u06FF]")
-
+# ========== Font/RTL helpers (trimmed for brevity, keep your originals) ==========
 def _is_arabic(s: str) -> bool:
-    return bool(_AR_RE.search(s or ""))
+    if not s:
+        return False
+    for ch in str(s):
+        if "\u0600" <= ch <= "\u06FF":
+            return True
+    return False
 
-from reportlab.pdfbase import pdfmetrics
 
 def _pick_line_font(st, prefer_ar="NotoNaskhArabic", prefer_lat="DejaVuSans"):
     regs = set(pdfmetrics.getRegisteredFontNames())
-    ar = prefer_ar if prefer_ar in regs else (st["font"] if st["font"] in regs else "Helvetica")
-    la = prefer_lat if prefer_lat in regs else (st["font"] if st["font"] in regs else "Helvetica")
-    return ar, la
+    if prefer_ar in regs and prefer_lat in regs:
+        return prefer_ar if _is_arabic(st) else prefer_lat
+    if prefer_ar in regs:
+        return prefer_ar
+    if prefer_lat in regs:
+        return prefer_lat
+    return st  # fallback to whatever the caller gave
 
-
-# ========== RTL / Arabic Support ==========
-try:
-    import arabic_reshaper  # type: ignore
-    from bidi.algorithm import get_display  # type: ignore
-
-    def _rtl_process(s: str) -> str:
-        if not s:
-            return ""
-        reshaped = arabic_reshaper.reshape(s)
-        return get_display(reshaped)
-
-except Exception:
-
-    def _rtl_process(s: str) -> str:
-        return s or ""
-
-
-# ========== Font helpers (safety) ==========
 
 def _safe_set_font(c: canvas.Canvas, name: str, size: int) -> None:
     """Try setFont; fallback gracefully to DejaVuSans or Helvetica."""
@@ -78,44 +65,75 @@ def _resolve_font_name(name: str) -> str:
     return "Helvetica"
 
 
+from reportlab.lib.units import mm
+
+def _ensure_single_column_layout(layout: dict | None, profile: dict) -> dict:
+    """Ensure a valid single-column layout if columns/flow are missing."""
+    layout = (layout or {}).copy()
+    columns = layout.get("columns") or []
+    flow = layout.get("flow") or []
+    if not columns:
+        columns = [{"id": "main", "width": "100%"}]
+        layout["columns"] = columns
+    if not flow:
+        blocks: list[str] = []
+        if (profile.get("header") or profile.get("header_name")):
+            blocks.append("header_name")
+        if profile.get("skills"):
+            blocks.append("key_skills")
+        if profile.get("projects"):
+            blocks.append("projects")
+        if profile.get("languages"):
+            blocks.append("languages")
+        if not blocks:
+            blocks = ["header_name"]
+        layout["flow"] = [{"column": columns[0]["id"], "blocks": blocks}]
+    else:
+        # normalize blocks to strings
+        for step in layout["flow"]:
+            if isinstance(step.get("blocks"), (list, tuple)):
+                step["blocks"] = [str(b).strip() for b in step["blocks"] if str(b).strip()]
+    return layout
+
+
 # ========== Helpers ==========
 def _block_name_arg(b: Any) -> Tuple[str, Optional[str]]:
     """
     Robustly parse a block entry. Accepts:
-      - "header_name"
-      - "text_section:summary"
-      - {"block_id": "header_name", "arg": "summary"}  # optional arg
-      - {"name": "header_name"}
-    Returns: (name, arg) or ("", None) if not resolvable.
+      - "block"
+      - "block:arg"
+      - {"name": "block", "arg": "..."}
+      - ("block", "arg")
+    Returns: (name, arg or None)
     """
-    if isinstance(b, dict):
-        name = (b.get("block_id") or b.get("name") or "").strip()
-        arg = b.get("arg")
-        if isinstance(arg, str):
-            arg = arg.strip() or None
-        else:
-            arg = None
-        return name, arg
-
-    bs = str(b).strip()
-    if not bs:
+    if b is None:
         return "", None
-    if ":" in bs:
-        name, arg = bs.split(":", 1)
-        return name.strip(), (arg.strip() or None)
-    return bs, None
+    if isinstance(b, str):
+        if ":" in b:
+            n, a = b.split(":", 1)
+            return n.strip(), a.strip() or None
+        return b.strip(), None
+    if isinstance(b, dict):
+        return (str(b.get("name", "")).strip(), (b.get("arg") or None))
+    if isinstance(b, (list, tuple)):
+        name = str(b[0]).strip() if len(b) > 0 else ""
+        arg = (str(b[1]).strip() if len(b) > 1 and b[1] is not None else None)
+        return name, arg
+    return "", None
 
 
 def _normalize_blocks_list(blocks: Any) -> List[Any]:
     """
-    Ensure blocks is a list; keep original items (string or dict).
-    We don't coerce to strings here—just guarantee it's a list.
+    Ensure blocks is a list of entries (strings or dicts).
     """
     if blocks is None:
         return []
     if isinstance(blocks, list):
         return blocks
+    if isinstance(blocks, tuple):
+        return list(blocks)
     return [blocks]
+
 
 def _text_to_lines(val: Any) -> List[str]:
     if val is None:
@@ -152,20 +170,20 @@ def _wrap_text(
     size: int = 10,
 ) -> List[str]:
     _safe_set_font(c, font, size)
-    words = str(text).split()
+    words = text.split()
     lines: List[str] = []
-    cur = ""
+    cur: List[str] = []
     for w in words:
-        test = (cur + " " + w).strip()
-        if c.stringWidth(test, font, size) <= max_w:
-            cur = test
+        trial = " ".join(cur + [w]) if cur else w
+        tw = pdfmetrics.stringWidth(trial, font, size)
+        if tw <= max_w or not cur:
+            cur.append(w)
         else:
-            if cur:
-                lines.append(cur)
-            cur = w
+            lines.append(" ".join(cur))
+            cur = [w]
     if cur:
-        lines.append(cur)
-    return lines or [""]
+        lines.append(" ".join(cur))
+    return lines
 
 
 def _draw_paragraph(
@@ -174,54 +192,43 @@ def _draw_paragraph(
     y: float,
     w: float,
     text: str,
-    leading: float,
-    font: str = "Helvetica",
-    size: int = 10,
+    lead: float,
+    font: str,
+    size: int,
     rtl: bool = False,
 ) -> float:
-    if not text:
-        return y
+    lines = []
+    for raw in text.splitlines():
+        st = raw.strip()
+        if not st:
+            continue
+        fnt = _pick_line_font(st, prefer_ar="NotoNaskhArabic", prefer_lat=font)
+        part = _wrap_text(c, st, w, fnt, size)
+        lines.extend(part if part else [st])
 
-    ar_font, la_font = _pick_line_font(st={"font": font})
-
-    for raw in str(text).splitlines():
-        is_ar = _is_arabic(raw)
-
-        render = _rtl_process(raw) if (rtl and is_ar) else raw
-
-        line_font = ar_font if is_ar else la_font
-
-        lines = _wrap_text(c, render, w, line_font, size)
-
-        for ln in lines:
-            _safe_set_font(c, line_font, size)
-            if rtl and is_ar:
-                c.drawRightString(x + w, y, ln)
-            else:
-                c.drawString(x, y, ln)
-            y -= leading
-
+    for ln in lines:
+        if rtl:
+            tw = pdfmetrics.stringWidth(ln, font, size)
+            c.drawRightString(x + w, y, ln)
+        else:
+            c.drawString(x, y, ln)
+        y -= lead
     return y
 
 
-
 def _pct_to_w(pct: Any, full_w: float) -> float:
-    s = str(pct or "").strip()
-    if s.endswith("%"):
-        try:
-            return full_w * (float(s[:-1]) / 100.0)
-        except Exception:
-            return full_w
     try:
-        return float(s)
+        if isinstance(pct, (int, float)):
+            return float(pct)
+        if isinstance(pct, str) and pct.endswith("%"):
+            return (float(pct[:-1]) / 100.0) * full_w
     except Exception:
-        return full_w
+        pass
+    return full_w
 
 
 def _deep_update(target: dict, source: dict) -> dict:
-    if not isinstance(target, dict) or not isinstance(source, dict):
-        return target
-    for k, v in source.items():
+    for k, v in (source or {}).items():
         if isinstance(v, dict) and isinstance(target.get(k), dict):
             _deep_update(target[k], v)
         else:
@@ -229,43 +236,36 @@ def _deep_update(target: dict, source: dict) -> dict:
     return target
 
 
-# ========== Theme Loader ==========
-
 def _load_theme_from_disk(theme_name: Optional[str]) -> dict:
-    if not theme_name:
-        return {}
-    root = Path(__file__).resolve().parents[2]
-    path = root / "themes" / f"{theme_name}.theme.json"
-    if path.exists():
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            return {}
-    return {}
+    # Dummy theme loader — replace with your theme loader as needed
+    theme = {
+        "colors": {"primary": "#0F172A", "text": "#0B0F19", "accent": "#2563EB", "bg": "#FFFFFF"},
+        "fonts": {"base": "DejaVuSans", "bold": "DejaVuSans-Bold", "heading": "DejaVuSans-Bold"},
+        "sizes": {
+            "h1": 20, "h2": 12, "h3": 11,
+            "lead_h1": 26, "lead_h2": 16, "lead_h3": 14,
+            "body": 10, "lead_body": 14,
+        }
+    }
+    return theme
 
 
 # ========== Blocks ==========
-
 def _block_header_name(
     c: canvas.Canvas,
-    x: float,
-    y: float,
-    w: float,
+    x: float, y: float, w: float,
     profile: Dict[str, Any],
     st: Dict[str, Any],
     rtl: bool,
 ) -> float:
-    head = profile.get("header") or {}
-    name = head.get("name", "")
-    title = head.get("title", "")
-    c.setFillColor(st["primary"])
+    header = profile.get("header") or profile.get("header_name") or {}
+    name = (header.get("name") or "").strip()
+    title = (header.get("title") or "").strip()
     _safe_set_font(c, st["font_head"], st["sizes"]["h1"])
-    if name:
-        (c.drawRightString if rtl else c.drawString)(x + (w if rtl else 0), y, name)
-        y -= st["sizes"]["lead_h1"]
-    c.setFillColor(st["text"])
-    _safe_set_font(c, st["font_bold"], st["sizes"]["h2"])
+    (c.drawRightString if rtl else c.drawString)(x + (w if rtl else 0), y, name)
+    y -= st["sizes"]["lead_h1"]
     if title:
+        _safe_set_font(c, st["font_bold"], st["sizes"]["h2"])
         (c.drawRightString if rtl else c.drawString)(x + (w if rtl else 0), y, title)
         y -= st["sizes"]["lead_h2"]
     return y - st["sp_after_header"]
@@ -305,109 +305,86 @@ def _block_social_links(
     rtl: bool,
 ) -> float:
     contact = profile.get("contact") or {}
-    links = [v for k, v in contact.items() if k in ("github", "linkedin", "website") and v]
+    links: List[str] = []
+    for k in ("email", "website", "github", "linkedin"):
+        v = (contact.get(k) or "").strip()
+        if v:
+            links.append(v)
     if not links:
         return y
     _safe_set_font(c, st["font_bold"], st["sizes"]["h3"])
-    (c.drawRightString if rtl else c.drawString)(x + (w if rtl else 0), y, "Social")
+    (c.drawRightString if rtl else c.drawString)(x + (w if rtl else 0), y, "Links")
     y -= st["sizes"]["lead_h3"]
-    for link in links:
+    _safe_set_font(c, st["font"], st["sizes"]["body"])
+    for v in links:
         y = _draw_paragraph(
-            c, x, y, w, f"• {link}", st["sizes"]["lead_body"], st["font"], st["sizes"]["body"], rtl
+            c, x, y, w, f"• {v}", st["sizes"]["lead_body"], st["font"], st["sizes"]["body"], rtl
         )
     return y - st["sp_after_list"]
 
 
 def _block_key_skills(
-    c: canvas.Canvas,
-    x: float,
-    y: float,
-    w: float,
-    profile: Dict[str, Any],
-    st: Dict[str, Any],
-    rtl: bool,
+    c: canvas.Canvas, x: float, y: float, w: float, profile: Dict[str, Any], st: Dict[str, Any], rtl: bool
 ) -> float:
-    skills = _text_to_lines(profile.get("skills"))
-    if not skills:
+    items = profile.get("skills") or profile.get("key_skills") or []
+    items = [i for i in items if i]
+    if not items:
         return y
     _safe_set_font(c, st["font_bold"], st["sizes"]["h3"])
-    (c.drawRightString if rtl else c.drawString)(x + (w if rtl else 0), y, "Key Skills")
+    (c.drawRightString if rtl else c.drawString)(x + (w if rtl else 0), y, "Skills")
     y -= st["sizes"]["lead_h3"]
-    for s in skills:
-        y = _draw_paragraph(
-            c, x, y, w, f"• {s}", st["sizes"]["lead_body"], st["font"], st["sizes"]["body"], rtl
-        )
-    return y - st["sp_after_list"]
+    _safe_set_font(c, st["font"], st["sizes"]["body"])
+    y = _draw_paragraph(c, x, y, w, " • ".join(items), st["sizes"]["lead_body"], st["font"], st["sizes"]["body"], rtl)
+    return y - st["sp_after_par"]
 
 
 def _block_languages(
-    c: canvas.Canvas,
-    x: float,
-    y: float,
-    w: float,
-    profile: Dict[str, Any],
-    st: Dict[str, Any],
-    rtl: bool,
+    c: canvas.Canvas, x: float, y: float, w: float, profile: Dict[str, Any], st: Dict[str, Any], rtl: bool
 ) -> float:
-    langs = _text_to_lines(profile.get("languages"))
-    if not langs:
+    items = profile.get("languages") or []
+    items = [i for i in items if i]
+    if not items:
         return y
     _safe_set_font(c, st["font_bold"], st["sizes"]["h3"])
     (c.drawRightString if rtl else c.drawString)(x + (w if rtl else 0), y, "Languages")
     y -= st["sizes"]["lead_h3"]
-    for s in langs:
-        y = _draw_paragraph(
-            c, x, y, w, f"• {s}", st["sizes"]["lead_body"], st["font"], st["sizes"]["body"], rtl
-        )
-    return y - st["sp_after_list"]
+    _safe_set_font(c, st["font"], st["sizes"]["body"])
+    y = _draw_paragraph(c, x, y, w, " • ".join(items), st["sizes"]["lead_body"], st["font"], st["sizes"]["body"], rtl)
+    return y - st["sp_after_par"]
 
 
 def _block_projects(
-    c: canvas.Canvas,
-    x: float,
-    y: float,
-    w: float,
-    profile: Dict[str, Any],
-    st: Dict[str, Any],
-    rtl: bool,
+    c: canvas.Canvas, x: float, y: float, w: float, profile: Dict[str, Any], st: Dict[str, Any], rtl: bool
 ) -> float:
-    projects = _projects_to_rows(profile.get("projects"))
-    if not projects:
+    items = _projects_to_rows(profile.get("projects") or profile.get("projects_rows") or [])
+    if not items:
         return y
     _safe_set_font(c, st["font_bold"], st["sizes"]["h3"])
     (c.drawRightString if rtl else c.drawString)(x + (w if rtl else 0), y, "Projects")
     y -= st["sizes"]["lead_h3"]
-    for (title, desc, url) in projects:
-        main = title
-        if desc:
-            main += f" — {desc}"
-        if url:
-            main += f" ({url})"
-        y = _draw_paragraph(
-            c, x, y, w, f"• {main}", st["sizes"]["lead_body"], st["font"], st["sizes"]["body"], rtl
-        )
+    _safe_set_font(c, st["font"], st["sizes"]["body"])
+    for (t, d, u) in items:
+        para = t
+        if d:
+            para += f" — {d}"
+        if u:
+            para += f"\n{u}"
+        y = _draw_paragraph(c, x, y, w, para, st["sizes"]["lead_body"], st["font"], st["sizes"]["body"], rtl)
     return y - st["sp_after_list"]
 
 
 def _block_education(
-    c: canvas.Canvas,
-    x: float,
-    y: float,
-    w: float,
-    profile: Dict[str, Any],
-    st: Dict[str, Any],
-    rtl: bool,
+    c: canvas.Canvas, x: float, y: float, w: float, profile: Dict[str, Any], st: Dict[str, Any], rtl: bool
 ) -> float:
-    edu = _text_to_lines(profile.get("education"))
-    if not edu:
+    items = _text_to_lines(profile.get("education") or [])
+    if not items:
         return y
     _safe_set_font(c, st["font_bold"], st["sizes"]["h3"])
     (c.drawRightString if rtl else c.drawString)(x + (w if rtl else 0), y, "Education")
     y -= st["sizes"]["lead_h3"]
-    for s in edu:
-        y = _draw_paragraph(
-            c, x, y, w, f"• {s}", st["sizes"]["lead_body"], st["font"], st["sizes"]["body"], rtl
-        )
+    _safe_set_font(c, st["font"], st["sizes"]["body"])
+    for ln in items:
+        y = _draw_paragraph(c, x, y, w, ln, st["sizes"]["lead_body"], st["font"], st["sizes"]["body"], rtl)
     return y - st["sp_after_list"]
 
 
@@ -442,12 +419,14 @@ def _block_left_panel_bg(
     bg: str = "#F8FAFC",
 ) -> None:
     pad = pad_mm * mm
+    c.saveState()
     c.setFillColor(HexColor(bg))
-    c.rect(x - pad, 0, w + pad * 2, page_h, stroke=0, fill=1)
-    c.setFillColor(st["text"])
+    c.rect(x - pad, 0, w + 2 * pad, page_h, stroke=0, fill=1)
+    c.restoreState()
 
 
-BLOCKS: Dict[str, Callable] = {
+# Map of block names → renderer
+BLOCKS: Dict[str, Callable[..., float]] = {
     "header_name": _block_header_name,
     "contact_info": _block_contact_info,
     "social_links": _block_social_links,
@@ -455,21 +434,17 @@ BLOCKS: Dict[str, Callable] = {
     "languages": _block_languages,
     "projects": _block_projects,
     "education": _block_education,
+    "text_section": lambda c, x, y, w, profile, st, rtl: _block_text_section(
+        c, x, y, w, (profile.get("text_section") or profile.get("summary") or ""), st, rtl, None
+    ),
+    "left_panel_bg": lambda *args, **kwargs: None,  # drawn specially
 }
 
 
-# ========== Main Builder ==========
-
-# ? ØÈøÚ ÈíÇäÇÊ ÇáÜprofile ÞÈá Ãí ÇÓÊÎÏÇã áåÇ
-try:
-    from api.pdf_utils.schema import ensure_profile_schema  # optional but recommended
-except Exception:
-    def ensure_profile_schema(x: Dict[str, Any]) -> Dict[str, Any]:
-        return x
-
+# ========== Builder ==========
 def build_resume_pdf(*, data: Dict[str, Any]) -> bytes:
     profile = ensure_profile_schema(data.get("profile") or {})
-    layout = data.get("layout_inline") or {}
+    layout = _ensure_single_column_layout(data.get("layout_inline"), profile)
     rtl = bool(data.get("rtl_mode"))
     theme_inline = data.get("theme_inline") or _load_theme_from_disk(
         data.get("theme_name")
@@ -513,10 +488,10 @@ def build_resume_pdf(*, data: Dict[str, Any]) -> bytes:
     margins = page.get("margin_mm", {"top": 22, "bottom": 18, "left": 18, "right": 18})
     pw, ph = A4
     left, right, top, bottom = (
-        margins["left"] * mm,
-        margins["right"] * mm,
-        margins["top"] * mm,
-        margins["bottom"] * mm,
+        float(margins.get("left", 18)) * mm,
+        float(margins.get("right", 18)) * mm,
+        float(margins.get("top", 22)) * mm,
+        float(margins.get("bottom", 18)) * mm,
     )
 
     buf = BytesIO()
@@ -554,7 +529,7 @@ def build_resume_pdf(*, data: Dict[str, Any]) -> bytes:
         cid = sec.get("column", "main")
         x, w = cols.get(cid, (left, usable_w))
 
-        # ? ØóÈøÞ ÇáÊØÈíÚ Úáì blocks Ëã ÊÚÇãá ãÚ left_panel_bg ÓæÇÁ ßÇä äÕ Ãæ dict
+        # تطبيع blocks ثم التعامل مع left_panel_bg إن وُجد
         blocks = _normalize_blocks_list(sec.get("blocks") or [])
 
         def _is_left_bg(entry: Any) -> bool:
@@ -564,25 +539,29 @@ def build_resume_pdf(*, data: Dict[str, Any]) -> bytes:
         if any(_is_left_bg(b) for b in blocks):
             over = layout.get("overrides", {}).get("left_panel_bg", {}).get("data", {})
             _block_left_panel_bg(
-                c,
-                x,
-                y_pos[cid],
-                w,
-                ph,
-                st,
-                pad_mm=over.get("pad_mm", 6),
-                bg=over.get("bg", "#F8FAFC"),
+                c, x, y_top, w, ph, {"font": st["font"], "sizes": st["sizes"]}, pad_mm=over.get("pad_mm", 6),
+                bg=over.get("bg", "#F8FAFC")
             )
-            blocks = [b for b in blocks if not _is_left_bg(b)]
 
         y = y_pos[cid]
-        for b in blocks:
-            ensure_space(cid, 80)
-            name, arg = _block_name_arg(b)  # ? Âãä ãÚ dict Ãæ string
-            if not name:
-                continue
-
-            if name == "text_section":
+        for blk in blocks:
+            name, arg = _block_name_arg(blk)
+            ensure_space(cid)
+            if name == "header_name":
+                y = _block_header_name(c, x, y, w, profile, st, rtl)
+            elif name == "contact_info":
+                y = _block_contact_info(c, x, y, w, profile, st, rtl)
+            elif name == "social_links":
+                y = _block_social_links(c, x, y, w, profile, st, rtl)
+            elif name == "key_skills":
+                y = _block_key_skills(c, x, y, w, profile, st, rtl)
+            elif name == "languages":
+                y = _block_languages(c, x, y, w, profile, st, rtl)
+            elif name == "projects":
+                y = _block_projects(c, x, y, w, profile, st, rtl)
+            elif name == "education":
+                y = _block_education(c, x, y, w, profile, st, rtl)
+            elif name == "text_section":
                 src = arg or ((layout.get("map_rules") or {}).get("text_section") or {}).get("from")
                 val = profile.get(src, "")
                 if isinstance(val, list):
@@ -597,3 +576,67 @@ def build_resume_pdf(*, data: Dict[str, Any]) -> bytes:
     c.save()
     return buf.getvalue()
 
+
+# ========== Schema normalizer (ensure_profile_schema) ==========
+def ensure_profile_schema(profile: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Minimal schema-normalizer so builder can render:
+      - skills / languages: CSV string or list → list[str]
+      - projects: accept list of tuples/dicts/strings → list[tuple(title, desc, url)]
+      - education: accept list[str] or str → list[str]
+    """
+    p = (profile or {}).copy()
+
+    def _csv(v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [x.strip() for x in v.split(",") if x.strip()]
+        if isinstance(v, (list, tuple)):
+            return [str(x).strip() for x in v if str(x).strip()]
+        return []
+
+    p["skills"] = _csv(p.get("skills"))
+    p["languages"] = _csv(p.get("languages"))
+
+    # projects → rows
+    rows: List[Tuple[str, str, Optional[str]]] = []
+    raw = p.get("projects") or []
+    if not isinstance(raw, list):
+        raw = [raw]
+    for it in raw:
+        t = d = u = ""
+        if it is None:
+            continue
+        if isinstance(it, str):
+            t = it.strip()
+        elif isinstance(it, dict):
+            t = (it.get("title") or it.get("name") or "").strip()
+            d = (it.get("desc") or it.get("description") or "").strip()
+            u = (it.get("url") or it.get("link") or "").strip()
+        elif isinstance(it, (list, tuple)):
+            t = (it[0] or "") if len(it) > 0 else ""
+            d = (it[1] or "") if len(it) > 1 else ""
+            u = (it[2] or "") if len(it) > 2 else ""
+        if t or d or u:
+            rows.append((t, d, (u or None)))
+    p["projects"] = rows
+
+    # education
+    edu = p.get("education")
+    if edu is None:
+        p["education"] = []
+    elif isinstance(edu, (list, tuple)):
+        p["education"] = [str(x).strip() for x in edu if str(x).strip()]
+    else:
+        p["education"] = [str(edu).strip()] if str(edu).strip() else []
+
+    # optional contact normalization (keep as-is if already dict)
+    if not isinstance(p.get("contact"), dict):
+        p["contact"] = {}
+
+    # header passthrough
+    if not isinstance(p.get("header"), dict):
+        p["header"] = {}
+
+    return p

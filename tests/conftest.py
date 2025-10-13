@@ -1,24 +1,33 @@
-import os
-import shutil
+# tests/conftest.py
+from __future__ import annotations
+import importlib
 import pytest
-from fastapi.testclient import TestClient
 
-@pytest.fixture(autouse=True)
-def _tmp_profiles_dir(tmp_path, monkeypatch):
-    d = tmp_path / "profiles"
-    d.mkdir()
-    monkeypatch.setenv("PROFILES_DIR", str(d))
-    yield
-    os.environ.pop("PROFILES_DIR", None)
-    shutil.rmtree(tmp_path, ignore_errors=True)
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    """
+    يعزل كل اختبار في مجلد profiles مؤقت خاص به عبر PROFILES_DIR،
+    ثم يُعيد تحميل الوحدات بالترتيب الصحيح حتى تلتقط القيم الجديدة.
+    """
+    # مجلد profiles معزول لهذا الاختبار
+    profiles_root = tmp_path / "profiles_isolated"
+    profiles_root.mkdir(parents=True, exist_ok=True)
 
-# ✅ خليها function-scoped وتعتمد على _tmp_profiles_dir
-@pytest.fixture()
-def app(_tmp_profiles_dir):
-    from api.main import app as _app
-    return _app
+    # وجّه التطبيق لاستخدامه
+    monkeypatch.setenv("PROFILES_DIR", str(profiles_root))
+    monkeypatch.setenv("PUBLIC_PROFILES_MOUNT", "/profiles")
 
-@pytest.fixture()
-def client(app):
-    return TestClient(app)
+    # 1) أعد تحميل settings لقراءة env الجديدة
+    from api import settings as settings_mod
+    importlib.reload(settings_mod)
 
+    # 2) أعد تحميل الراوتر الذي يخبّئ PROFILES_DIR عند الاستيراد
+    from api.routes import profiles as profiles_mod
+    importlib.reload(profiles_mod)
+
+    # 3) أخيرًا أعد تحميل main ليبني app بالوضع المعزول
+    from api import main as main_mod
+    importlib.reload(main_mod)
+
+    from starlette.testclient import TestClient
+    return TestClient(main_mod.app)
